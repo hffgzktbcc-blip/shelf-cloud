@@ -1,69 +1,178 @@
-import Image from "next/image";
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { BookPlus, Bookmark, FileText, Headphones } from "lucide-react";
+import { prisma } from "@/lib/db";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { formatDuration } from "@/lib/format";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default async function LibraryPage() {
+  // First run only: an empty shelf with no welcome on record.
+  const seen = await prisma.setting.findUnique({ where: { key: "welcomeSeen" } });
+  if (!seen) {
+    const existing = await prisma.book.count();
+    if (existing === 0) redirect("/welcome");
+  }
+
+  const books = await prisma.book.findMany({
+    orderBy: { updatedAt: "desc" },
+    include: {
+      parts: { orderBy: { order: "asc" } },
+      ebooks: { select: { id: true } },
+      _count: { select: { bookmarks: true } },
+    },
+  });
+
+  const withStats = books.map((book) => {
+    const total = book.parts.reduce((sum, p) => sum + p.duration, 0);
+    const listened = book.parts.reduce(
+      (sum, p) => sum + (p.completed ? p.duration : p.positionSec),
+      0,
+    );
+    const pct = total > 0 ? Math.min(100, (listened / total) * 100) : 0;
+    const resumePart =
+      book.parts.find((p) => p.id === book.lastPartId) ??
+      book.parts.find((p) => !p.completed) ??
+      book.parts[0];
+    return { book, total, listened, pct, resumePart };
+  });
+
+  const inProgress = withStats.filter((b) => b.pct > 0.5 && b.pct < 99);
+  const rest = withStats.filter((b) => !inProgress.includes(b));
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert h-5 w-[100px]"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the{" "}
-            <code className="rounded bg-black/[.06] px-1.5 py-0.5 font-mono text-[0.9em] dark:bg-white/[.08]">
-              page.tsx
-            </code>{" "}
-            file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="mx-auto max-w-7xl px-4 py-8">
+      <div className="mb-8 flex items-end justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Your Library</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            {books.length === 0
+              ? "Nothing here yet — add your first audiobook."
+              : `${books.length} ${books.length === 1 ? "book" : "books"} on the shelf`}
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert h-[14px] w-4"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={14}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <Button asChild>
+          <Link href="/discover">
+            <BookPlus className="size-4" />
+            Add a book
+          </Link>
+        </Button>
+      </div>
+
+      {books.length === 0 ? (
+        <EmptyState />
+      ) : (
+        <div className="space-y-12">
+          {inProgress.length > 0 && (
+            <section>
+              <h2 className="mb-4 text-lg font-medium">Continue listening</h2>
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
+                {inProgress.map((s) => (
+                  <BookCard key={s.book.id} {...s} />
+                ))}
+              </div>
+            </section>
+          )}
+          {rest.length > 0 && (
+            <section>
+              {inProgress.length > 0 && <h2 className="mb-4 text-lg font-medium">All books</h2>}
+              <div className="grid grid-cols-2 gap-5 sm:grid-cols-3 lg:grid-cols-5">
+                {rest.map((s) => (
+                  <BookCard key={s.book.id} {...s} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
-      </main>
+      )}
     </div>
+  );
+}
+
+function EmptyState() {
+  return (
+    <div className="border-border/60 flex flex-col items-center rounded-xl border border-dashed px-6 py-20 text-center">
+      <Headphones className="text-muted-foreground/50 size-12" />
+      <h2 className="mt-4 text-lg font-medium">No audiobooks yet</h2>
+      <p className="text-muted-foreground mt-1 max-w-md text-sm">
+        Search YouTube from inside the app, or paste a link to any audiobook video. Chapters and
+        transcripts get pulled in automatically.
+      </p>
+      <Button asChild className="mt-6">
+        <Link href="/discover">
+          <BookPlus className="size-4" />
+          Find an audiobook
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
+type CardProps = {
+  book: {
+    id: string;
+    title: string;
+    author: string | null;
+    coverUrl: string | null;
+    parts: { id: string }[];
+    ebooks: { id: string }[];
+    _count: { bookmarks: number };
+  };
+  total: number;
+  pct: number;
+  resumePart: { id: string } | undefined;
+};
+
+function BookCard({ book, total, pct, resumePart }: CardProps) {
+  const href = resumePart ? `/book/${book.id}/play/${resumePart.id}` : `/book/${book.id}`;
+
+  return (
+    <Link href={href} className="group block">
+      <div className="bg-muted relative aspect-square overflow-hidden rounded-lg shadow-sm ring-1 ring-white/5">
+        {book.coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={book.coverUrl}
+            alt=""
+            className="size-full object-cover transition-transform duration-300 group-hover:scale-105"
+          />
+        ) : (
+          <div className="text-muted-foreground flex size-full items-center justify-center">
+            <Headphones className="size-8" />
+          </div>
+        )}
+        {pct > 0.5 && (
+          <div className="absolute inset-x-0 bottom-0">
+            <Progress value={pct} className="h-1 rounded-none" />
+          </div>
+        )}
+      </div>
+      <div className="mt-2.5">
+        <h3 className="group-hover:text-primary line-clamp-2 text-sm leading-snug font-medium transition-colors">
+          {book.title}
+        </h3>
+        {book.author && (
+          <p className="text-muted-foreground mt-0.5 line-clamp-1 text-xs">{book.author}</p>
+        )}
+        <div className="text-muted-foreground mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+          <span>{formatDuration(total)}</span>
+          {book.parts.length > 1 && (
+            <Badge variant="secondary" className="px-1.5 py-0 text-xs">
+              {book.parts.length} parts
+            </Badge>
+          )}
+          {book.ebooks.length > 0 && <FileText className="size-3" />}
+          {book._count.bookmarks > 0 && (
+            <span className="inline-flex items-center gap-0.5">
+              <Bookmark className="size-3" />
+              {book._count.bookmarks}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
   );
 }

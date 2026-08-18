@@ -1,0 +1,136 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "sqlite"
+}
+
+model Book {
+  id          String   @id @default(cuid())
+  title       String
+  author      String?
+  description String?
+  coverUrl    String?
+  narrator    String?
+  series      String?
+  finished    Boolean  @default(false)
+  favorite    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lastPartId String?
+
+  parts      Part[]
+  ebooks     Ebook[]
+  bookmarks  Bookmark[]
+  aiMessages AiMessage[]
+}
+
+model Part {
+  id        String  @id @default(cuid())
+  bookId    String
+  videoId   String
+  title     String
+  order     Int
+  duration  Int     @default(0)
+  thumbUrl  String?
+  channel   String?
+
+  positionSec Float    @default(0)
+  completed   Boolean  @default(false)
+  addedAt     DateTime @default(now())
+
+  transcriptJson String?
+  transcriptState String @default("unknown")
+
+  book      Book       @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  chapters  Chapter[]
+  bookmarks Bookmark[]
+
+  @@unique([bookId, videoId])
+  @@index([bookId, order])
+}
+
+model Chapter {
+  id      String @id @default(cuid())
+  partId  String
+  title   String
+  startSec Float
+  endSec   Float?
+  order   Int
+
+  part Part @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@index([partId, order])
+}
+
+model Ebook {
+  id        String   @id @default(cuid())
+  bookId    String
+  fileName  String
+  filePath  String
+  format    String   @default("epub")
+  cfi       String?
+  progress  Float    @default(0)
+  addedAt   DateTime @default(now())
+
+  /** Cached parse of the EPUB into ordered text blocks. */
+  blocksJson String?
+  /** Reading position as a block index — replaces the CFI. */
+  blockIndex Int?
+
+  book     Book      @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  syncMarks SyncMark[]
+}
+
+model SyncMark {
+  id       String @id @default(cuid())
+  ebookId  String
+  partId   String
+  timeSec  Float
+  cfi      String
+  /** Block index the native reader syncs against; cfi is kept for older marks. */
+  blockIndex Int?
+  label    String?
+
+  ebook Ebook @relation(fields: [ebookId], references: [id], onDelete: Cascade)
+
+  @@index([ebookId, timeSec])
+}
+
+model Bookmark {
+  id        String   @id @default(cuid())
+  bookId    String
+  partId    String
+  timeSec   Float
+  note      String?
+  label     String?
+  createdAt DateTime @default(now())
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+  part Part @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@index([bookId, createdAt])
+}
+
+model AiMessage {
+  id        String   @id @default(cuid())
+  bookId    String
+  partId    String
+  timeSec   Float
+  kind      String   @default("ask")
+  question  String
+  answer    String
+  createdAt DateTime @default(now())
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([bookId, createdAt])
+}
+
+model Setting {
+  key   String @id
+  value String
+}
