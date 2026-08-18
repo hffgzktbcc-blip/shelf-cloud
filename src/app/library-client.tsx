@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AudioLines, BookPlus, Bookmark, FileText, Headphones, Search, X } from "lucide-react";
+import { AudioLines, BookPlus, Bookmark, FileText, Headphones, Play, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -45,6 +45,9 @@ export function LibraryClient({ books }: { books: LibraryBook[] }) {
   const rest = filtered.filter((b) => !inProgress.includes(b));
 
   const totalHours = books.reduce((s, b) => s + b.totalDuration, 0) / 3600;
+  // Books arrive newest-first, so the first in-progress one is the last thing listened to.
+  const hero = query.trim() ? null : inProgress[0] ?? null;
+  const heroRest = hero ? inProgress.filter((b) => b.id !== hero.id) : inProgress;
 
   if (books.length === 0) return <EmptyLibrary />;
 
@@ -94,8 +97,9 @@ export function LibraryClient({ books }: { books: LibraryBook[] }) {
         </p>
       ) : (
         <div className="space-y-12">
-          {inProgress.length > 0 && (
-            <Shelf title="Continue listening" books={inProgress} playingPartId={track?.partId} />
+          {hero && <Hero book={hero} playing={track?.partId === hero.resumePartId} />}
+          {heroRest.length > 0 && (
+            <Shelf title="Continue listening" books={heroRest} playingPartId={track?.partId} />
           )}
           {rest.length > 0 && (
             <Shelf
@@ -107,6 +111,94 @@ export function LibraryClient({ books }: { books: LibraryBook[] }) {
         </div>
       )}
     </div>
+  );
+}
+
+function Hero({ book, playing }: { book: LibraryBook; playing: boolean }) {
+  const pct = book.totalDuration > 0 ? (book.listened / book.totalDuration) * 100 : 0;
+  const remaining = Math.max(0, book.totalDuration - book.listened);
+  const href = book.resumePartId
+    ? `/book/${book.id}/play/${book.resumePartId}`
+    : `/book/${book.id}`;
+
+  return (
+    <section className="relative overflow-hidden rounded-2xl border">
+      {/* The cover, blurred, doubles as the backdrop so each book colours its own hero. */}
+      {book.coverUrl && (
+        <div
+          aria-hidden
+          className="absolute inset-0 scale-110 bg-cover bg-center opacity-25 blur-2xl"
+          style={{ backgroundImage: `url(${book.coverUrl})` }}
+        />
+      )}
+      <div className="from-background/80 to-background/95 absolute inset-0 bg-gradient-to-r" />
+
+      <div className="relative flex flex-col gap-7 p-7 sm:flex-row sm:items-center sm:p-9">
+        <Link href={href} className="group shrink-0">
+          <div className="bg-muted size-40 overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/10 sm:size-48">
+            {book.coverUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={book.coverUrl}
+                alt=""
+                className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
+              />
+            ) : (
+              <div className="text-muted-foreground/50 grid size-full place-items-center">
+                <Headphones className="size-10" />
+              </div>
+            )}
+          </div>
+        </Link>
+
+        <div className="min-w-0 flex-1">
+          <p className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-[0.14em] uppercase">
+            {playing ? (
+              <>
+                <AudioLines className="size-3.5" />
+                Now playing
+              </>
+            ) : (
+              "Pick up where you left off"
+            )}
+          </p>
+
+          <h2 className="mt-3 line-clamp-2 text-3xl leading-tight font-semibold tracking-tight">
+            {book.title}
+          </h2>
+          {book.author && <p className="text-muted-foreground mt-1.5">{book.author}</p>}
+
+          <div className="mt-6 max-w-md">
+            <div className="bg-secondary h-1.5 w-full overflow-hidden rounded-full">
+              <div className="bg-primary h-full rounded-full" style={{ width: `${pct}%` }} />
+            </div>
+            <p className="text-muted-foreground mt-2 text-xs tabular-nums">
+              {Math.round(pct)}% through
+              <span className="text-muted-foreground/40 mx-2">·</span>
+              {formatDuration(remaining)} left
+              {book.partCount > 1 && (
+                <>
+                  <span className="text-muted-foreground/40 mx-2">·</span>
+                  {book.partCount} parts
+                </>
+              )}
+            </p>
+          </div>
+
+          <div className="mt-6 flex flex-wrap gap-2">
+            <Button asChild size="lg" className="h-11">
+              <Link href={href}>
+                <Play className="size-4" />
+                {playing ? "Back to the player" : "Resume"}
+              </Link>
+            </Button>
+            <Button asChild variant="secondary" size="lg" className="h-11">
+              <Link href={`/book/${book.id}`}>Book details</Link>
+            </Button>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }
 
