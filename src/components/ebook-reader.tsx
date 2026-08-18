@@ -135,8 +135,19 @@ export function EbookReader({ ebook, partId, videoId, currentTime, onSeek }: Pro
   useEffect(() => {
     if (!following || activeBlock === null) return;
     if (lastScrolledTo.current === activeBlock) return;
+
+    // A smooth scroll takes a few hundred milliseconds, and every new call restarts it.
+    // While following narration the target moves continuously — and faster still at 1.5x
+    // or 2x — so smooth animation never lands and the text visibly trails the voice.
+    // Animate only for a jump big enough to lose your place; otherwise track instantly.
+    const previous = lastScrolledTo.current;
+    const jumped = previous === null || Math.abs(activeBlock - previous) > 12;
     lastScrolledTo.current = activeBlock;
-    activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+
+    activeRef.current?.scrollIntoView({
+      block: "center",
+      behavior: jumped ? "smooth" : "auto",
+    });
   }, [activeBlock, following]);
 
   const savePosition = useCallback(

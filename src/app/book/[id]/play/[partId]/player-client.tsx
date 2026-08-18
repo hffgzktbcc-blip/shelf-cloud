@@ -71,10 +71,11 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
   }, []);
 
   function toggleAudioOnly() {
-    setAudioOnly((v) => {
-      window.localStorage.setItem("shelf:audioOnly.v2", v ? "0" : "1");
-      return !v;
-    });
+    // The write has to happen outside the updater: StrictMode double-invokes updaters to
+    // surface impurity, and a side effect in there left the toggle doing nothing at all.
+    const next = !audioOnly;
+    setAudioOnly(next);
+    window.localStorage.setItem("shelf:audioOnly.v2", next ? "1" : "0");
   }
 
   useEffect(() => {
@@ -305,7 +306,9 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
             <Button
               size="sm"
               variant="secondary"
-              className="absolute top-2 right-2 z-10 h-8 gap-1.5 text-xs opacity-80 hover:opacity-100"
+              // The iframe host is `fixed z-50` and lives outside this tree, so anything below
+              // that sits under the video and becomes unreachable in video mode.
+              className="absolute top-2 right-2 z-[60] h-8 gap-1.5 text-xs opacity-80 hover:opacity-100"
               onClick={toggleAudioOnly}
             >
               {audioOnly ? <Video className="size-3.5" /> : <Headphones className="size-3.5" />}

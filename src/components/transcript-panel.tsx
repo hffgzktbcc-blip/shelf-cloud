@@ -24,6 +24,43 @@ const MAX_WINDOW = 1400;
 const EDGE = 30;
 const SEARCH_LIMIT = 300;
 
+type Positioned = { cue: TranscriptCue; index: number };
+
+/**
+ * YouTube emits a caption cue every few words, which is why the transcript read as a column
+ * of fragments. Grouping them back into paragraphs makes it read like the book: a new
+ * paragraph starts on a real pause in the narration, or once one has run long enough.
+ */
+const PARAGRAPH_GAP_SEC = 1.6;
+const PARAGRAPH_MAX_CHARS = 420;
+
+function toParagraphs(items: Positioned[]): Positioned[][] {
+  const out: Positioned[][] = [];
+  let current: Positioned[] = [];
+  let chars = 0;
+
+  for (let i = 0; i < items.length; i++) {
+    const { cue } = items[i];
+    const previous = items[i - 1]?.cue;
+
+    const gap = previous ? cue.start - (previous.start + (previous.dur ?? 0)) : 0;
+    const endsSentence = previous ? /[.!?]["')\]]?\s*$/.test(previous.text) : false;
+    const tooLong = chars > PARAGRAPH_MAX_CHARS;
+
+    if (current.length > 0 && (gap > PARAGRAPH_GAP_SEC || (tooLong && endsSentence) || chars > PARAGRAPH_MAX_CHARS * 2)) {
+      out.push(current);
+      current = [];
+      chars = 0;
+    }
+
+    current.push(items[i]);
+    chars += cue.text.length + 1;
+  }
+
+  if (current.length > 0) out.push(current);
+  return out;
+}
+
 export function TranscriptPanel({ videoId, currentTime, onSeek }: Props) {
   const [cues, setCues] = useState<TranscriptCue[] | null>(null);
   const [loading, setLoading] = useState(true);
@@ -33,7 +70,7 @@ export function TranscriptPanel({ videoId, currentTime, onSeek }: Props) {
   const [range, setRange] = useState({ start: 0, end: 2 * HALF_WINDOW });
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
-  const activeRef = useRef<HTMLButtonElement | null>(null);
+  const activeRef = useRef<HTMLElement | null>(null);
   const prependRef = useRef<{ height: number } | null>(null);
 
   useEffect(() => {
@@ -88,9 +125,19 @@ export function TranscriptPanel({ videoId, currentTime, onSeek }: Props) {
     if (activeIndex < range.start + EDGE || activeIndex > range.end - EDGE) recenter(activeIndex);
   }, [cues, activeIndex, following, query, range.start, range.end, recenter]);
 
+  const lastScrolledTo = useRef<number | null>(null);
+
   useEffect(() => {
     if (!following || query.trim() || activeIndex < 0) return;
-    activeRef.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+
+    // Every new smooth scroll cancels the one in flight, and cues advance every second or
+    // two — faster at 1.5x or 2x — so the animation never lands and the text trails the
+    // voice. Animate only when the position jumps; otherwise track instantly.
+    const previous = lastScrolledTo.current;
+    const jumped = previous === null || Math.abs(activeIndex - previous) > 20;
+    lastScrolledTo.current = activeIndex;
+
+    activeRef.current?.scrollIntoView({ block: "center", behavior: jumped ? "smooth" : "auto" });
   }, [activeIndex, following, query]);
 
   useLayoutEffect(() => {
@@ -152,9 +199,10 @@ export function TranscriptPanel({ videoId, currentTime, onSeek }: Props) {
     );
   }
 
-  const visible =
-    searchResults ??
-    cues.slice(range.start, range.end).map((cue, i) => ({ cue, index: range.start + i }));
+  const visible = cues
+    .slice(range.start, range.end)
+    .map((cue, i) => ({ cue, index: range.start + i }));
+  const paragraphs = searchResults ? [] : toParagraphs(visible);
 
   return (
     <div className="flex h-full flex-col">
@@ -207,19 +255,42 @@ export function TranscriptPanel({ videoId, currentTime, onSeek }: Props) {
         </p>
       )}
 
-      <div ref={scrollRef} onScroll={onScroll} className="flex-1 overflow-y-auto p-2">
-        {visible.map(({ cue, index }) => {
-          const active = index === activeIndex && !query.trim();
-          return (
-            <CueRow
-              key={index}
-              ref={active ? activeRef : undefined}
-              cue={cue}
-              active={active}
-              onSeek={onSeek}
-            />
-          );
-        })}
+      <div
+        ref={scrollRef}
+        onScroll={onScroll}
+        className="flex-1 overflow-y-auto px-5 py-4"
+      >
+        {searchResults ? (
+          searchResults.map(({ cue, index }) => (
+            <CueRow key={index} cue={cue} active={false} onSeek={onSeek} />
+          ))
+        ) : (
+          <div className="mx-auto max-w-prose space-y-5 text-[0.975rem] leading-[1.85]">
+            {paragraphs.map((para) => (
+              <p key={para[0].index}>
+                {para.map(({ cue, index }) => {
+                  const active = index === activeIndex;
+                  return (
+                    <span
+                      key={index}
+                      ref={active ? activeRef : undefined}
+                      onClick={() => onSeek(cue.start)}
+                      title={formatTime(cue.start)}
+                      className={cn(
+                        "cursor-pointer rounded-sm transition-colors",
+                        active
+                          ? "bg-primary/20 text-foreground"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {cue.text}{" "}
+                    </span>
+                  );
+                })}
+              </p>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
