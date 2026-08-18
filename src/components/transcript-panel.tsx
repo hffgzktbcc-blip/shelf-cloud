@@ -248,7 +248,7 @@ const CueRow = memo(function CueRow({
       <span
         className={cn(
           "shrink-0 font-mono text-xs tabular-nums",
-          active ? "text-primary" : "text-muted-foreground/60",
+          active ? "text-primary" : "text-muted-foreground",
         )}
       >
         {formatTime(cue.start)}

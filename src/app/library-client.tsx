@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { formatDuration } from "@/lib/format";
 import { usePlayer } from "@/components/player-provider";
+import { Cover } from "@/components/cover";
 
 export type LibraryBook = {
   id: string;
@@ -135,20 +136,11 @@ function Hero({ book, playing }: { book: LibraryBook; playing: boolean }) {
 
       <div className="relative flex flex-col gap-7 p-7 sm:flex-row sm:items-center sm:p-9">
         <Link href={href} className="group shrink-0">
-          <div className="bg-muted size-40 overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/10 sm:size-48">
-            {book.coverUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={book.coverUrl}
-                alt=""
-                className="size-full object-cover transition-transform duration-500 group-hover:scale-105"
-              />
-            ) : (
-              <div className="text-muted-foreground/50 grid size-full place-items-center">
-                <Headphones className="size-10" />
-              </div>
-            )}
-          </div>
+          <Cover
+            src={book.coverUrl}
+            className="size-40 rounded-xl shadow-2xl ring-1 ring-white/10 sm:size-48"
+            imgClassName="transition-transform duration-500 group-hover:scale-105"
+          />
         </Link>
 
         <div className="min-w-0 flex-1">
@@ -237,18 +229,11 @@ function BookCard({ book, playing }: { book: LibraryBook; playing: boolean }) {
   return (
     <Link href={href} className="group block focus-visible:outline-none">
       <div className="bg-muted relative aspect-square overflow-hidden rounded-xl shadow-lg ring-1 ring-white/8 transition-[transform,box-shadow] duration-300 group-hover:-translate-y-1 group-hover:shadow-2xl group-focus-visible:ring-2 group-focus-visible:ring-white/40">
-        {book.coverUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={book.coverUrl}
-            alt=""
-            className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
-          />
-        ) : (
-          <div className="text-muted-foreground/50 flex size-full items-center justify-center">
-            <Headphones className="size-8" />
-          </div>
-        )}
+        <Cover
+          src={book.coverUrl}
+          className="absolute inset-0"
+          imgClassName="transition-transform duration-500 group-hover:scale-[1.04]"
+        />
 
         {/* Keeps the meta legible over bright cover art. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
@@ -285,7 +270,7 @@ function BookCard({ book, playing }: { book: LibraryBook; playing: boolean }) {
         {book.author && (
           <p className="text-muted-foreground mt-1 line-clamp-1 text-xs">{book.author}</p>
         )}
-        <div className="text-muted-foreground/70 mt-2 flex items-center gap-2.5 text-xs">
+        <div className="text-muted-foreground mt-2 flex items-center gap-2.5 text-xs">
           <span className="tabular-nums">{formatDuration(book.totalDuration)}</span>
           {book.partCount > 1 && <span>{book.partCount} parts</span>}
           {book.ebookCount > 0 && <FileText className="size-3" />}

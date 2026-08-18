@@ -67,7 +67,7 @@ export function WelcomeClient({ hasBooks }: { hasBooks: boolean }) {
         </Button>
       </div>
 
-      <p className="text-muted-foreground/70 mx-auto mt-6 max-w-md text-center text-xs leading-relaxed">
+      <p className="text-muted-foreground mx-auto mt-6 max-w-md text-center text-xs leading-relaxed">
         No account, no sign-in. Your library, bookmarks and position live in a file on this
         machine — nothing is uploaded anywhere.
       </p>
@@ -116,22 +116,22 @@ function AppPreview() {
           <div className="bg-secondary mt-4 h-1 w-full max-w-[190px] overflow-hidden rounded-full">
             <div className="bg-primary h-full w-[31%] rounded-full" />
           </div>
-          <div className="text-muted-foreground/70 mt-1.5 flex w-full max-w-[190px] justify-between text-[9px] tabular-nums">
+          <div className="text-muted-foreground mt-1.5 flex w-full max-w-[190px] justify-between text-[9px] tabular-nums">
             <span>00:31:30</span>
             <span>10:14:13</span>
           </div>
           <div className="mt-3 flex items-center gap-3">
-            <span className="text-muted-foreground/60 text-xs">15</span>
+            <span className="text-subtle-foreground text-xs">15</span>
             <span className="bg-primary text-primary-foreground flex size-8 items-center justify-center rounded-full">
               <Play className="size-3.5" />
             </span>
-            <span className="text-muted-foreground/60 text-xs">30</span>
+            <span className="text-subtle-foreground text-xs">30</span>
           </div>
         </div>
 
         {/* Chapters column */}
         <div className="bg-background/40 p-3">
-          <div className="text-muted-foreground/80 flex items-center gap-1.5 text-xs font-medium">
+          <div className="text-muted-foreground flex items-center gap-1.5 text-xs font-medium">
             <ListTree className="size-3" />
             Chapters
           </div>
@@ -142,7 +142,7 @@ function AppPreview() {
                 className={`flex items-center gap-2 rounded px-1.5 py-1 ${c.active ? "bg-primary/15" : ""}`}
               >
                 <span
-                  className={`font-mono text-[9px] tabular-nums ${c.active ? "text-primary" : "text-muted-foreground/60"}`}
+                  className={`font-mono text-[9px] tabular-nums ${c.active ? "text-primary" : "text-subtle-foreground"}`}
                 >
                   {c.time}
                 </span>

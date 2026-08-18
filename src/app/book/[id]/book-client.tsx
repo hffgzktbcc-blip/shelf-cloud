@@ -12,6 +12,7 @@ import {
   Plus,
   Search,
   ShoppingCart,
+  MoreHorizontal,
   Sparkles,
   Trash2,
   Upload,
@@ -24,11 +25,21 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { formatDuration, formatTime } from "@/lib/format";
 import { parseAudiobookTitle } from "@/lib/title";
 import { CalibrePicker } from "@/components/calibre-picker";
 import { KindleImport } from "@/components/kindle-import";
 import { KoboImport } from "@/components/kobo-import";
+import { CoverPicker } from "@/components/cover-picker";
+import { Cover } from "@/components/cover";
+import { KoboPosition } from "@/components/kobo-position";
 import type { Book, SearchHit } from "@/lib/types";
 
 type Props = { book: Book; links: { name: string; url: string }[] };
@@ -140,12 +151,10 @@ export function BookClient({ book, links }: Props) {
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
       <div className="flex flex-col gap-6 sm:flex-row">
-        <div className="bg-muted aspect-square w-full shrink-0 overflow-hidden rounded-xl ring-1 ring-white/5 sm:w-56">
-          {book.coverUrl && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={book.coverUrl} alt="" className="size-full object-cover" />
-          )}
-        </div>
+        <Cover
+          src={book.coverUrl}
+          className="aspect-square w-full shrink-0 rounded-xl ring-1 ring-white/5 sm:w-56"
+        />
 
         <div className="min-w-0 flex-1">
           <h1 className="text-2xl leading-tight font-semibold tracking-tight">{book.title}</h1>
@@ -191,27 +200,70 @@ export function BookClient({ book, links }: Props) {
             </div>
           )}
 
-          <div className="mt-5 flex flex-wrap gap-2">
+          {/* One primary action, then a clearly secondary group. Previously eight buttons
+              shared the same weight, so nothing read as the thing to do. */}
+          <div className="mt-6 flex flex-wrap items-center gap-2">
             {resumePart && (
-              <Button asChild>
+              <Button asChild size="lg" className="h-11">
                 <Link href={`/book/${book.id}/play/${resumePart.id}`}>
                   <Play className="size-4" />
                   {pct > 0.5 ? "Resume" : "Start listening"}
                 </Link>
               </Button>
             )}
-            <Button variant="secondary" onClick={() => fileRef.current?.click()} disabled={uploading}>
-              {uploading ? <Loader2 className="size-4 animate-spin" /> : <Upload className="size-4" />}
-              {book.ebooks.length > 0 ? "Replace ebook" : "Load ebook"}
-            </Button>
-            <CalibrePicker
-              bookId={book.id}
-              bookTitle={book.title}
-              bookAuthor={book.author}
-              onImported={() => router.refresh()}
-            />
-            <KindleImport bookId={book.id} onImported={() => router.refresh()} />
-            <KoboImport bookId={book.id} onImported={() => router.refresh()} />
+
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="icon" className="h-11 w-11" aria-label="More actions">
+                  <MoreHorizontal className="size-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                <DropdownMenuItem onClick={tidyTitle} disabled={tidying}>
+                  <Sparkles className="size-4" />
+                  Tidy title
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem variant="destructive" onClick={deleteBook}>
+                  <Trash2 className="size-4" />
+                  Remove from library
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          <div className="mt-5">
+            <p className="text-subtle-foreground mb-2 text-xs font-medium tracking-[0.12em] uppercase">
+              Add to this book
+            </p>
+            <div className="flex flex-wrap gap-1.5">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => fileRef.current?.click()}
+                disabled={uploading}
+              >
+                {uploading ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <Upload className="size-4" />
+                )}
+                {book.ebooks.length > 0 ? "Replace ebook" : "Ebook"}
+              </Button>
+              <CalibrePicker
+                bookId={book.id}
+                bookTitle={book.title}
+                bookAuthor={book.author}
+                onImported={() => router.refresh()}
+              />
+              <KindleImport bookId={book.id} onImported={() => router.refresh()} />
+              <KoboImport bookId={book.id} onImported={() => router.refresh()} />
+              <CoverPicker
+                bookId={book.id}
+                bookTitle={book.title}
+                onApplied={() => router.refresh()}
+              />
+            </div>
             <input
               ref={fileRef}
               type="file"
@@ -223,14 +275,6 @@ export function BookClient({ book, links }: Props) {
                 e.target.value = "";
               }}
             />
-            <Button variant="ghost" onClick={tidyTitle} disabled={tidying} className="text-muted-foreground">
-              {tidying ? <Loader2 className="size-4 animate-spin" /> : <Sparkles className="size-4" />}
-              Tidy title
-            </Button>
-            <Button variant="ghost" onClick={deleteBook} className="text-muted-foreground">
-              <Trash2 className="size-4" />
-              Remove
-            </Button>
           </div>
         </div>
       </div>
@@ -343,6 +387,8 @@ export function BookClient({ book, links }: Props) {
         </div>
 
         <div className="space-y-8">
+          <KoboPosition bookId={book.id} />
+
           <section>
             <h2 className="mb-3 flex items-center gap-2 text-lg font-medium">
               <ShoppingCart className="size-4" />

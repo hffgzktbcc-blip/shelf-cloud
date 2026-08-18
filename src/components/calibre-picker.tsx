@@ -80,7 +80,7 @@ export function CalibrePicker({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="secondary">
+        <Button variant="ghost" size="sm">
           <BookMarked className="size-4" />
           From Calibre
         </Button>

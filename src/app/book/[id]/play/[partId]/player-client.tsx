@@ -35,6 +35,8 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/format";
+import { parseAudiobookTitle } from "@/lib/title";
+import { Cover } from "@/components/cover";
 import { usePlayer } from "@/components/player-provider";
 import { TranscriptPanel } from "@/components/transcript-panel";
 import { EbookReader } from "@/components/ebook-reader";
@@ -54,17 +56,26 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
   const [bookmarks, setBookmarks] = useState<BookmarkType[]>(book.bookmarks ?? []);
   const [chapters, setChapters] = useState<Chapter[]>(part.chapters ?? []);
   const [detecting, setDetecting] = useState(false);
-  const [audioOnly, setAudioOnly] = useState(false);
+  // Audio-first by default: the cover view is the point, the video is incidental.
+  const [audioOnly, setAudioOnly] = useState(true);
   const startAt = useRef(part.positionSec).current;
 
   // Read after mount so the server render and first client render agree.
+  //
+  // A new key on purpose: the old one was written on every mount, so it recorded "video"
+  // as a preference for people who had never touched the toggle. Only an explicit toggle
+  // writes now, and an unset value keeps the audio-first default.
   useEffect(() => {
-    setAudioOnly(window.localStorage.getItem("shelf:audioOnly") === "1");
+    const stored = window.localStorage.getItem("shelf:audioOnly.v2");
+    if (stored !== null) setAudioOnly(stored === "1");
   }, []);
 
-  useEffect(() => {
-    window.localStorage.setItem("shelf:audioOnly", audioOnly ? "1" : "0");
-  }, [audioOnly]);
+  function toggleAudioOnly() {
+    setAudioOnly((v) => {
+      window.localStorage.setItem("shelf:audioOnly.v2", v ? "0" : "1");
+      return !v;
+    });
+  }
 
   useEffect(() => {
     setChapters(part.chapters ?? []);
@@ -96,7 +107,14 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
     nudge,
     load,
     setAnchor,
+    setVideoHidden,
   } = usePlayer();
+
+  // The iframe lives above this page in the provider, so it has to be told to hide.
+  useEffect(() => {
+    setVideoHidden(audioOnly);
+    return () => setVideoHidden(false);
+  }, [audioOnly, setVideoHidden]);
 
   const anchorRef = useRef<HTMLDivElement | null>(null);
 
@@ -258,17 +276,13 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
 
             {audioOnly && (
               <div className="bg-background absolute inset-0 flex flex-col items-center justify-center gap-4">
-                {book.coverUrl && (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={book.coverUrl}
-                    alt=""
-                    className={cn(
-                      "size-40 rounded-lg object-cover shadow-2xl ring-1 ring-white/10 transition-transform duration-700",
-                      state.playing ? "scale-100" : "scale-95 opacity-80",
-                    )}
-                  />
-                )}
+                <Cover
+                  src={book.coverUrl}
+                  className={cn(
+                    "h-64 w-44 rounded-xl shadow-2xl ring-1 ring-white/10 transition-transform duration-700",
+                    state.playing ? "scale-100" : "scale-95 opacity-80",
+                  )}
+                />
                 <div className="flex items-end gap-1 h-4">
                   {[0, 1, 2, 3, 4].map((i) => (
                     <span
@@ -292,7 +306,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
               size="sm"
               variant="secondary"
               className="absolute top-2 right-2 z-10 h-8 gap-1.5 text-xs opacity-80 hover:opacity-100"
-              onClick={() => setAudioOnly((v) => !v)}
+              onClick={toggleAudioOnly}
             >
               {audioOnly ? <Video className="size-3.5" /> : <Headphones className="size-3.5" />}
               {audioOnly ? "Show video" : "Audio only"}
@@ -300,7 +314,10 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
           </div>
 
           <div>
-            <h1 className="text-lg leading-snug font-medium">{part.title}</h1>
+            <h1 className="text-xl leading-snug font-medium">
+              {parseAudiobookTitle(part.title, part.channel).partLabel ?? part.title}
+            </h1>
+            <p className="text-subtle-foreground mt-0.5 text-sm">{book.title}</p>
             {activeChapter && (
               <p className="text-primary mt-1 text-sm">{activeChapter.title}</p>
             )}
@@ -333,7 +350,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
             <div className="text-muted-foreground mt-1.5 flex items-center justify-between text-xs tabular-nums">
               <span>{formatTime(state.currentTime)}</span>
               {chapterRemaining !== null && (
-                <span className="text-muted-foreground/70">
+                <span className="text-muted-foreground">
                   {formatTime(chapterRemaining)} left in chapter
                 </span>
               )}
@@ -351,13 +368,13 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
               <ChevronLeft className="size-5" />
             </Button>
             <Button variant="ghost" size="icon" onClick={() => nudge(-15)}>
-              <RotateCcw className="size-5" />
+              <RotateCcw className="size-6" />
             </Button>
-            <Button size="icon" className="size-12 rounded-full" onClick={toggle}>
-              {state.playing ? <Pause className="size-5" /> : <Play className="size-5" />}
+            <Button size="icon" className="size-16 rounded-full" onClick={toggle}>
+              {state.playing ? <Pause className="size-7" /> : <Play className="size-7" />}
             </Button>
             <Button variant="ghost" size="icon" onClick={() => nudge(30)}>
-              <RotateCw className="size-5" />
+              <RotateCw className="size-6" />
             </Button>
             <Button
               variant="ghost"
@@ -579,7 +596,7 @@ function ChapterList({
             <span
               className={cn(
                 "w-5 shrink-0 text-center text-xs tabular-nums",
-                active ? "text-primary" : "text-muted-foreground/60",
+                active ? "text-primary" : "text-subtle-foreground",
               )}
             >
               {i + 1}
@@ -590,7 +607,7 @@ function ChapterList({
             <span className="text-muted-foreground shrink-0 font-mono text-xs tabular-nums">
               {formatTime(c.startSec)}
             </span>
-            <span className="text-muted-foreground/50 hidden shrink-0 text-xs tabular-nums sm:inline">
+            <span className="text-subtle-foreground hidden shrink-0 text-xs tabular-nums sm:inline">
               {formatTime(Math.max(0, end - c.startSec))}
             </span>
           </button>
@@ -688,7 +705,7 @@ function BookmarkNote({
     ) : (
       <button
         onClick={() => setEditing(true)}
-        className="text-muted-foreground/60 hover:text-foreground mt-1 block text-left text-xs opacity-0 transition-opacity group-hover:opacity-100"
+        className="text-subtle-foreground hover:text-foreground mt-1 block text-left text-xs opacity-0 transition-opacity group-hover:opacity-100"
       >
         Add a note…
       </button>

@@ -74,6 +74,69 @@ Search works without one by reading YouTube's public results page. Adding a
 [YouTube Data API key](https://console.cloud.google.com/apis/library/youtube.googleapis.com)
 in Settings makes search more reliable. It's stored in the local database only.
 
+## Cover art
+
+**Find cover** on a book page replaces the YouTube thumbnail with real jacket art. It checks
+four sources, none of which need an API key:
+
+1. **The EPUB you loaded** — the exact edition's own cover, read straight out of the file.
+   No network, no key, and it can't match the wrong book. Always offered first.
+2. **Open Library** — strong on traditionally published books.
+3. **Apple Books** — keyless and unregistered, and it carries the self-published titles
+   Open Library has never catalogued.
+4. **Google Books** — optional, see below.
+
+Covers are contained rather than cropped, so portrait jackets and 16:9 thumbnails sit on the
+same shelf without losing their tops.
+
+### Optional: Google Books API key
+
+Google Books' keyless endpoint shares one global daily quota that is usually already spent, so
+it normally returns `429` and contributes nothing. The picker says so rather than pretending
+there were no results. A free personal key gets its own, much larger allowance:
+
+1. Create a key at [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+   and enable the **Books API** for the project.
+2. Add it to `.env`:
+
+   ```
+   GOOGLE_BOOKS_API_KEY="your-key-here"
+   ```
+
+3. Restart the dev server.
+
+The other three sources work regardless.
+
+## Reading position from your Kobo, over WiFi
+
+Shelf speaks [KOReader](https://koreader.rocks)'s progress-sync protocol, so a Kobo can push
+where you are in the book straight into the app — no cable.
+
+KOReader is a sideloaded reader that sits *alongside* the stock Kobo reader rather than
+replacing it, so nothing about the device changes and you can switch back any time. This syncs
+KOReader's position, not the stock reader's — stock firmware has no wireless export path, which
+is why **From Kobo** (highlights) still needs USB.
+
+**Setup**
+
+1. Install KOReader on the Kobo.
+2. On the Mac, find your local address: `ipconfig getifaddr en0`.
+3. In KOReader: **Tools → Progress sync → Custom sync server**, and enter
+   `http://<that-address>:3000/api/kosync`.
+4. Register an account there (it's stored only in this app's database, password hashed).
+5. Set **Document matching method** to *filename* — the most reliable pairing with the EPUBs
+   you've loaded here.
+
+Close a book on the Kobo and the position appears on that book's page in Shelf, with a button
+to jump the audio to the matching moment.
+
+**What it can and can't map**
+
+The jump needs an EPUB loaded *and* Auto-sync run, because the position is converted
+ebook-text → transcript → timestamp. If the passage falls outside the audio you have — an
+ebook is the whole novel, while a YouTube upload is often just one part — Shelf says so rather
+than sending you to 0:00.
+
 ## Notes
 
 - Playback uses YouTube's official embedded IFrame player — nothing is downloaded or

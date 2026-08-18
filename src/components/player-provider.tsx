@@ -75,6 +75,13 @@ type Ctx = {
   stop: () => void;
   /** The player page hands over the element the video should sit in. */
   setAnchor: (el: HTMLElement | null) => void;
+  /**
+   * Audio-only mode. The host iframe is `fixed z-50`, so a page-level overlay can never
+   * cover it — hiding the video has to happen here. It is faded out rather than
+   * unmounted, because removing the iframe from the DOM stops playback.
+   */
+  videoHidden: boolean;
+  setVideoHidden: (v: boolean) => void;
 };
 
 const PlayerContext = createContext<Ctx | null>(null);
@@ -101,6 +108,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const [track, setTrack] = useState<Track | null>(null);
   const [docked, setDocked] = useState(true);
+  const [videoHidden, setVideoHidden] = useState(false);
   const [rate, setRateState] = useState(1);
   const [sleepAt, setSleepAt] = useState<number | null>(null);
   const [state, setState] = useState<PlayerState>({
@@ -331,6 +339,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setSleepTimer,
         stop,
         setAnchor,
+        videoHidden,
+        setVideoHidden,
       }}
     >
       {children}
@@ -342,6 +352,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         className={cn(
           "fixed z-50 overflow-hidden bg-black transition-opacity duration-300",
           track ? "opacity-100" : "pointer-events-none opacity-0",
+          // Audio-only: keep it playing, just stop showing it.
+          videoHidden && !docked ? "pointer-events-none opacity-0" : "",
           docked ? "right-5 bottom-5 h-[72px] w-32 rounded-l-xl" : "",
         )}
       >
@@ -364,7 +376,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               <p className="text-muted-foreground mt-0.5 truncate text-xs tabular-nums">
                 {formatTime(state.currentTime)}
                 {state.duration > 0 && (
-                  <span className="text-muted-foreground/50">
+                  <span className="text-subtle-foreground">
                     {" "}/ {formatTime(state.duration)}
                   </span>
                 )}

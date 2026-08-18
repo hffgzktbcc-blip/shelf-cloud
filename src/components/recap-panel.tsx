@@ -155,7 +155,7 @@ export function RecapPanel({
                   {e.answer}
                 </p>
                 {e.source === "extractive" && (
-                  <p className="text-muted-foreground/60 mt-2 text-xs">
+                  <p className="text-subtle-foreground mt-2 text-xs">
                     Key sentences from the narration — no model installed.
                   </p>
                 )}

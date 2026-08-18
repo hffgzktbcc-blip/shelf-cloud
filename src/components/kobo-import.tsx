@@ -81,7 +81,7 @@ export function KoboImport({ bookId, onImported }: { bookId: string; onImported:
       }}
     >
       <DialogTrigger asChild>
-        <Button variant="secondary">
+        <Button variant="ghost" size="sm">
           <Tablet className="size-4" />
           From Kobo
         </Button>
@@ -166,7 +166,7 @@ export function KoboImport({ bookId, onImported }: { bookId: string; onImported:
                         className={
                           s.located
                             ? "text-primary font-mono tabular-nums"
-                            : "text-muted-foreground/50"
+                            : "text-subtle-foreground"
                         }
                       >
                         {s.located && s.timeSec !== null ? formatTime(s.timeSec) : "—"}
