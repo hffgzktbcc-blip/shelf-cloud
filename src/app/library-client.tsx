@@ -2,11 +2,11 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AudioLines, BookPlus, Bookmark, FileText, Headphones, Play, Search, X } from "lucide-react";
+import { AudioLines, BookPlus, Bookmark, FileText, Headphones, Play, Quote, Search, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { formatDuration } from "@/lib/format";
+import { formatDuration, formatTime } from "@/lib/format";
 import { usePlayer } from "@/components/player-provider";
 import { Cover } from "@/components/cover";
 
@@ -24,7 +24,23 @@ export type LibraryBook = {
   resumePartId: string | null;
 };
 
-export function LibraryClient({ books }: { books: LibraryBook[] }) {
+export type Passage = {
+  quote: string;
+  timeSec: number;
+  bookId: string;
+  partId: string;
+  bookTitle: string;
+  bookAuthor: string | null;
+  coverUrl: string | null;
+};
+
+export function LibraryClient({
+  books,
+  passage,
+}: {
+  books: LibraryBook[];
+  passage?: Passage | null;
+}) {
   const [query, setQuery] = useState("");
   const { track } = usePlayer();
 
@@ -99,6 +115,7 @@ export function LibraryClient({ books }: { books: LibraryBook[] }) {
       ) : (
         <div className="space-y-12">
           {hero && <Hero book={hero} playing={track?.partId === hero.resumePartId} />}
+          {passage && <PassageOfTheDay passage={passage} />}
           {heroRest.length > 0 && (
             <Shelf title="Continue listening" books={heroRest} playingPartId={track?.partId} />
           )}
@@ -112,6 +129,50 @@ export function LibraryClient({ books }: { books: LibraryBook[] }) {
         </div>
       )}
     </div>
+  );
+}
+
+/** A passage you saved, handed back to you. */
+function PassageOfTheDay({ passage }: { passage: Passage }) {
+  return (
+    <section className="relative overflow-hidden rounded-2xl border">
+      {passage.coverUrl && (
+        <>
+          <div
+            aria-hidden
+            className="absolute inset-0 scale-110 bg-cover bg-center opacity-20 blur-3xl saturate-150"
+            style={{ backgroundImage: `url(${passage.coverUrl})` }}
+          />
+          <div aria-hidden className="from-background/85 to-background/95 absolute inset-0 bg-gradient-to-br" />
+        </>
+      )}
+
+      <div className="relative px-7 py-8 sm:px-9">
+        <p className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-[0.14em] uppercase">
+          <Quote className="size-3.5" />
+          A passage you saved
+        </p>
+
+        <blockquote className="mt-4 max-w-2xl text-lg leading-relaxed font-light text-balance">
+          {passage.quote}
+        </blockquote>
+
+        <div className="mt-5 flex flex-wrap items-center gap-3">
+          <Button asChild size="sm" variant="secondary">
+            <Link href={`/book/${passage.bookId}/play/${passage.partId}`}>
+              <Play className="size-3.5" />
+              Hear it
+            </Link>
+          </Button>
+          <p className="text-subtle-foreground text-xs">
+            {passage.bookTitle}
+            {passage.bookAuthor ? ` · ${passage.bookAuthor}` : ""}
+            <span className="text-muted-foreground/40 mx-2">·</span>
+            {formatTime(passage.timeSec)}
+          </p>
+        </div>
+      </div>
+    </section>
   );
 }
 

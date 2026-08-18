@@ -136,3 +136,11 @@ model Setting {
   key   String @id
   value String
 }
+
+/// One row per day of listening. The app only ever stored a current position, so there was
+/// no way to say what you listened to last week; this accrues that from now on.
+model ListeningDay {
+  /// Local calendar date, YYYY-MM-DD.
+  date    String @id
+  seconds Int    @default(0)
+}

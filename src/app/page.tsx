@@ -1,6 +1,6 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
-import { LibraryClient, type LibraryBook } from "./library-client";
+import { LibraryClient, type LibraryBook, type Passage } from "./library-client";
 
 export const dynamic = "force-dynamic";
 
@@ -47,5 +47,31 @@ export default async function LibraryPage() {
     };
   });
 
-  return <LibraryClient books={shaped} />;
+  /**
+   * One saved passage, surfaced again. Chosen by the calendar date rather than at random,
+   * so it stays put through the day instead of reshuffling on every refresh.
+   */
+  const quoted = await prisma.bookmark.findMany({
+    where: { quote: { not: null } },
+    include: { book: { select: { id: true, title: true, author: true, coverUrl: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  let passage: Passage | null = null;
+  if (quoted.length > 0) {
+    const today = new Date().toLocaleDateString("en-CA");
+    const seed = [...today].reduce((a, c) => a + c.charCodeAt(0), 0);
+    const pick = quoted[seed % quoted.length];
+    passage = {
+      quote: pick.quote!,
+      timeSec: pick.timeSec,
+      bookId: pick.book.id,
+      partId: pick.partId,
+      bookTitle: pick.book.title,
+      bookAuthor: pick.book.author,
+      coverUrl: pick.book.coverUrl,
+    };
+  }
+
+  return <LibraryClient books={shaped} passage={passage} />;
 }
