@@ -84,8 +84,15 @@ export async function GET(req: Request) {
     });
   }
 
+  // Unmatched syncs used to be invisible: the UI filters by book, so a position that
+  // matched nothing could never be seen or corrected. They are returned alongside now,
+  // with the ebook this book could bind them to.
+  const bindableEbookId = bookId ? (ebooks.find((e) => e.bookId === bookId)?.id ?? null) : null;
+
   return NextResponse.json({
     positions: bookId ? resolved.filter((r) => r.bookId === bookId) : resolved,
+    unmatched: resolved.filter((r) => r.bookId === null),
+    bindableEbookId,
   });
 }
 

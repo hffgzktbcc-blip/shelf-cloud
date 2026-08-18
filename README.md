@@ -124,8 +124,12 @@ is why **From Kobo** (highlights) still needs USB.
 3. In KOReader: **Tools → Progress sync → Custom sync server**, and enter
    `http://<that-address>:3000/api/kosync`.
 4. Register an account there (it's stored only in this app's database, password hashed).
-5. Set **Document matching method** to *filename* — the most reliable pairing with the EPUBs
-   you've loaded here.
+5. Set **Document matching method** to *filename*.
+
+Filename matching handles the Kobo's own renaming: sideloaded books get converted to
+`.kepub.epub` and lowercased, so `Light_Bringer.epub` on your Mac is
+`light_bringer.kepub.epub` on the device. Shelf checks both forms. If a sync still lands
+unmatched, the book page offers a **This book** button to link it once, and remembers it.
 
 Close a book on the Kobo and the position appears on that book's page in Shelf, with a button
 to jump the audio to the matching moment.

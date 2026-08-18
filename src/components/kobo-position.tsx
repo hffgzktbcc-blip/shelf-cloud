@@ -31,6 +31,9 @@ function ago(unix: number): string {
 
 export function KoboPosition({ bookId }: { bookId: string }) {
   const [position, setPosition] = useState<Position | null>(null);
+  const [unmatched, setUnmatched] = useState<Position[]>([]);
+  const [bindableEbookId, setBindableEbookId] = useState<string | null>(null);
+  const [binding, setBinding] = useState<string | null>(null);
   const [jumping, setJumping] = useState(false);
   const router = useRouter();
 
@@ -41,6 +44,8 @@ export function KoboPosition({ bookId }: { bookId: string }) {
       .then((d) => {
         if (stale) return;
         setPosition(d.positions?.[0] ?? null);
+        setUnmatched(d.unmatched ?? []);
+        setBindableEbookId(d.bindableEbookId ?? null);
       })
       .catch(() => {});
     return () => {
@@ -68,7 +73,72 @@ export function KoboPosition({ bookId }: { bookId: string }) {
     }
   }
 
-  if (!position) return null;
+  /** Tell Shelf that an unrecognised Kobo document is this book's ebook. */
+  async function bind(document: string) {
+    if (!bindableEbookId) return;
+    setBinding(document);
+    try {
+      const res = await fetch("/api/kobo-position", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ document, ebookId: bindableEbookId }),
+      });
+      if (!res.ok) throw new Error("Could not link that document");
+      router.refresh();
+      const d = await fetch(`/api/kobo-position?bookId=${bookId}`).then((r) => r.json());
+      setPosition(d.positions?.[0] ?? null);
+      setUnmatched(d.unmatched ?? []);
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setBinding(null);
+    }
+  }
+
+  if (!position && unmatched.length === 0) return null;
+
+  if (!position) {
+    return (
+      <div className="bg-card/60 rounded-lg border p-4">
+        <div className="flex items-center gap-2">
+          <Tablet className="text-muted-foreground size-4" />
+          <p className="text-sm font-medium">
+            {unmatched.length === 1 ? "A Kobo sync arrived" : `${unmatched.length} Kobo syncs arrived`}
+          </p>
+        </div>
+        <p className="text-muted-foreground mt-2 text-sm leading-relaxed">
+          {unmatched.length === 1 ? "It doesn't" : "They don't"} match any book here — a Kobo
+          renames sideloaded files, so the copy on the device can differ from the one you loaded.
+          Link it if it&apos;s this book.
+        </p>
+
+        <div className="mt-3 space-y-2">
+          {unmatched.map((u) => (
+            <div key={u.document} className="flex items-center justify-between gap-3">
+              <span className="text-subtle-foreground truncate font-mono text-xs">
+                {u.device} · {Math.round(u.percentage * 100)}% · {u.document.slice(0, 10)}…
+              </span>
+              <Button
+                size="sm"
+                variant="secondary"
+                disabled={!bindableEbookId || binding !== null}
+                onClick={() => bind(u.document)}
+              >
+                {binding === u.document && <Loader2 className="size-4 animate-spin" />}
+                This book
+              </Button>
+            </div>
+          ))}
+        </div>
+
+        {!bindableEbookId && (
+          <p className="text-subtle-foreground mt-3 text-xs">
+            Load this book&apos;s EPUB first — linking needs something to match against.
+          </p>
+        )}
+      </div>
+    );
+  }
 
   const pct = Math.round(position.percentage * 100);
 

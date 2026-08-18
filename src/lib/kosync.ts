@@ -39,7 +39,8 @@ export function md5(s: string | Buffer): string {
  * match, the document can still be bound to a book by hand, once.
  */
 export function documentHashes(filePath: string, fileName: string): string[] {
-  const out = new Set<string>([md5(fileName), md5(path.basename(fileName))]);
+  const out = new Set<string>();
+  for (const name of nameVariants(fileName)) out.add(md5(name));
 
   try {
     const fd = fs.openSync(filePath, "r");
@@ -62,9 +63,31 @@ export function documentHashes(filePath: string, fileName: string): string[] {
 
     fs.closeSync(fd);
   } catch {
-    // A missing or unreadable file just means no content hashes; the name hash still works.
+    // A missing or unreadable file just means no content hashes; the name hashes still work.
   }
 
+  return [...out];
+}
+
+/**
+ * A Kobo does not keep the filename you gave it. Sideloaded books are converted to Kobo's
+ * own format and lowercased, so `Light_Bringer.epub` becomes
+ * `light_bringer.kepub.epub` — a different MD5, and a different file, so neither the name
+ * nor the content hash matches. Generating the transformed names here is what lets a
+ * KOReader sync find its book without the user binding it by hand.
+ */
+function nameVariants(fileName: string): string[] {
+  const base = path.basename(fileName);
+  const stripped = base.replace(/\.kepub\.epub$/i, ".epub");
+
+  const out = new Set<string>();
+  for (const n of [base, stripped]) {
+    for (const cased of [n, n.toLowerCase()]) {
+      out.add(cased);
+      // And the Kobo-converted form of each.
+      out.add(cased.replace(/\.epub$/i, ".kepub.epub"));
+    }
+  }
   return [...out];
 }
 
