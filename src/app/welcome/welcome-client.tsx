@@ -85,7 +85,7 @@ function AppPreview() {
   ];
 
   return (
-    <div className="border-border/60 bg-card/40 mt-12 overflow-hidden rounded-xl border shadow-2xl">
+    <div className="border-border/60 bg-card/50 mt-12 overflow-hidden rounded-xl border shadow-2xl">
       <div className="grid gap-px sm:grid-cols-[0.85fr_1.1fr_0.85fr]">
         {/* Search column */}
         <div className="bg-background/40 p-3">

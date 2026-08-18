@@ -234,7 +234,7 @@ export function BookClient({ book, links }: Props) {
           </div>
 
           <div className="mt-5">
-            <p className="text-subtle-foreground mb-2 text-xs font-medium tracking-[0.12em] uppercase">
+            <p className="text-subtle-foreground mb-2 text-xs font-medium tracking-[0.14em] uppercase">
               Add to this book
             </p>
             <div className="flex flex-wrap gap-1.5">

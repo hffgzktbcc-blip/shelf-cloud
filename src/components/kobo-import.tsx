@@ -143,7 +143,7 @@ export function KoboImport({ bookId, onImported }: { bookId: string; onImported:
             </div>
 
             {preview && (
-              <div className="bg-card/60 space-y-2 rounded-md border p-3 text-sm">
+              <div className="bg-card/50 space-y-2 rounded-md border p-3 text-sm">
                 <p>
                   <strong>{preview.total}</strong> highlight{preview.total === 1 ? "" : "s"}
                   {preview.canPlace && (

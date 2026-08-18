@@ -64,7 +64,7 @@ function Row({ row }: { row: EbookRow }) {
   const isAligned = row.aligned > 1;
 
   return (
-    <div className="bg-card/40 hover:bg-card/70 flex items-center gap-4 rounded-lg border p-3 transition-colors">
+    <div className="bg-card/50 hover:bg-card/50 flex items-center gap-4 rounded-lg border p-3 transition-colors">
       <Cover
         src={row.missing ? null : `/api/ebooks/${row.id}/cover`}
         className="h-20 w-14 shrink-0 rounded-md ring-1 ring-white/10"

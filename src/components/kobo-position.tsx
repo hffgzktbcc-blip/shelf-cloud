@@ -99,7 +99,7 @@ export function KoboPosition({ bookId }: { bookId: string }) {
 
   if (!position) {
     return (
-      <div className="bg-card/60 rounded-lg border p-4">
+      <div className="bg-card/50 rounded-lg border p-4">
         <div className="flex items-center gap-2">
           <Tablet className="text-muted-foreground size-4" />
           <p className="text-sm font-medium">
@@ -143,7 +143,7 @@ export function KoboPosition({ bookId }: { bookId: string }) {
   const pct = Math.round(position.percentage * 100);
 
   return (
-    <div className="bg-card/60 rounded-lg border p-4">
+    <div className="bg-card/50 rounded-lg border p-4">
       <div className="flex items-center gap-2">
         <Tablet className="text-muted-foreground size-4" />
         <p className="text-sm font-medium">{position.device}</p>

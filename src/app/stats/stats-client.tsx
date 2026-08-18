@@ -62,7 +62,7 @@ export function StatsClient({ data }: { data: StatsData }) {
                 <Link
                   key={b.id}
                   href={`/book/${b.id}`}
-                  className="hover:bg-card/60 flex items-center gap-3 rounded-lg p-2 transition-colors"
+                  className="hover:bg-card/50 flex items-center gap-3 rounded-lg p-2 transition-colors"
                 >
                   <Cover src={b.coverUrl} className="h-14 w-10 shrink-0 rounded ring-1 ring-white/10" />
                   <div className="min-w-0 flex-1">
