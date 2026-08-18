@@ -1,0 +1,232 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { AudioLines, BookPlus, Bookmark, FileText, Headphones, Search, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/format";
+import { usePlayer } from "@/components/player-provider";
+
+export type LibraryBook = {
+  id: string;
+  title: string;
+  author: string | null;
+  series: string | null;
+  coverUrl: string | null;
+  partCount: number;
+  ebookCount: number;
+  bookmarkCount: number;
+  totalDuration: number;
+  listened: number;
+  resumePartId: string | null;
+};
+
+export function LibraryClient({ books }: { books: LibraryBook[] }) {
+  const [query, setQuery] = useState("");
+  const { track } = usePlayer();
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return books;
+    return books.filter(
+      (b) =>
+        b.title.toLowerCase().includes(q) ||
+        (b.author ?? "").toLowerCase().includes(q) ||
+        (b.series ?? "").toLowerCase().includes(q),
+    );
+  }, [books, query]);
+
+  const inProgress = filtered.filter((b) => {
+    const pct = b.totalDuration > 0 ? (b.listened / b.totalDuration) * 100 : 0;
+    return pct > 0.5 && pct < 99;
+  });
+  const rest = filtered.filter((b) => !inProgress.includes(b));
+
+  const totalHours = books.reduce((s, b) => s + b.totalDuration, 0) / 3600;
+
+  if (books.length === 0) return <EmptyLibrary />;
+
+  return (
+    <div className="mx-auto max-w-7xl px-6 py-10">
+      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
+        <div>
+          <h1 className="text-4xl font-semibold tracking-tight">Your Library</h1>
+          <p className="text-muted-foreground mt-2 text-sm">
+            {books.length} {books.length === 1 ? "book" : "books"}
+            <span className="text-muted-foreground/40 mx-2">·</span>
+            {Math.round(totalHours)} hours of listening
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2">
+          <div className="relative">
+            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+            <Input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search your shelf…"
+              className="h-9 w-56 pl-9"
+            />
+            {query && (
+              <button
+                onClick={() => setQuery("")}
+                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2.5 -translate-y-1/2"
+                aria-label="Clear search"
+              >
+                <X className="size-3.5" />
+              </button>
+            )}
+          </div>
+          <Button asChild className="h-9">
+            <Link href="/discover">
+              <BookPlus className="size-4" />
+              Add a book
+            </Link>
+          </Button>
+        </div>
+      </header>
+
+      {filtered.length === 0 ? (
+        <p className="text-muted-foreground py-20 text-center text-sm">
+          Nothing matches “{query}”.
+        </p>
+      ) : (
+        <div className="space-y-12">
+          {inProgress.length > 0 && (
+            <Shelf title="Continue listening" books={inProgress} playingPartId={track?.partId} />
+          )}
+          {rest.length > 0 && (
+            <Shelf
+              title={inProgress.length > 0 ? "Everything else" : undefined}
+              books={rest}
+              playingPartId={track?.partId}
+            />
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function Shelf({
+  title,
+  books,
+  playingPartId,
+}: {
+  title?: string;
+  books: LibraryBook[];
+  playingPartId?: string;
+}) {
+  return (
+    <section>
+      {title && (
+        <h2 className="text-muted-foreground mb-5 text-xs font-medium tracking-[0.14em] uppercase">
+          {title}
+        </h2>
+      )}
+      <div className="grid grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-3 lg:grid-cols-5">
+        {books.map((b) => (
+          <BookCard key={b.id} book={b} playing={!!playingPartId && playingPartId === b.resumePartId} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function BookCard({ book, playing }: { book: LibraryBook; playing: boolean }) {
+  const pct = book.totalDuration > 0 ? (book.listened / book.totalDuration) * 100 : 0;
+  const remaining = Math.max(0, book.totalDuration - book.listened);
+  const href = book.resumePartId
+    ? `/book/${book.id}/play/${book.resumePartId}`
+    : `/book/${book.id}`;
+
+  return (
+    <Link href={href} className="group block focus-visible:outline-none">
+      <div className="bg-muted relative aspect-square overflow-hidden rounded-xl shadow-lg ring-1 ring-white/8 transition-[transform,box-shadow] duration-300 group-hover:-translate-y-1 group-hover:shadow-2xl group-focus-visible:ring-2 group-focus-visible:ring-white/40">
+        {book.coverUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={book.coverUrl}
+            alt=""
+            className="size-full object-cover transition-transform duration-500 group-hover:scale-[1.04]"
+          />
+        ) : (
+          <div className="text-muted-foreground/50 flex size-full items-center justify-center">
+            <Headphones className="size-8" />
+          </div>
+        )}
+
+        {/* Keeps the meta legible over bright cover art. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+        {playing && (
+          <span className="bg-primary text-primary-foreground absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium shadow">
+            <AudioLines className="size-3" />
+            Playing
+          </span>
+        )}
+
+        {pct > 0.5 && (
+          <span className="pointer-events-none absolute right-2.5 bottom-2.5 rounded-full bg-black/70 px-2 py-0.5 text-xs font-medium text-white opacity-0 backdrop-blur transition-opacity duration-300 group-hover:opacity-100">
+            {formatDuration(remaining)} left
+          </span>
+        )}
+
+        {pct > 0.5 && (
+          <div className="absolute inset-x-0 bottom-0 h-[3px] bg-black/40">
+            <div className="bg-primary h-full" style={{ width: `${pct}%` }} />
+          </div>
+        )}
+      </div>
+
+      <div className="mt-3">
+        <h3
+          className={cn(
+            "line-clamp-2 text-sm leading-snug font-medium transition-colors",
+            "group-hover:text-primary",
+          )}
+        >
+          {book.title}
+        </h3>
+        {book.author && (
+          <p className="text-muted-foreground mt-1 line-clamp-1 text-xs">{book.author}</p>
+        )}
+        <div className="text-muted-foreground/70 mt-2 flex items-center gap-2.5 text-xs">
+          <span className="tabular-nums">{formatDuration(book.totalDuration)}</span>
+          {book.partCount > 1 && <span>{book.partCount} parts</span>}
+          {book.ebookCount > 0 && <FileText className="size-3" />}
+          {book.bookmarkCount > 0 && (
+            <span className="inline-flex items-center gap-1 tabular-nums">
+              <Bookmark className="size-3" />
+              {book.bookmarkCount}
+            </span>
+          )}
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function EmptyLibrary() {
+  return (
+    <div className="mx-auto max-w-7xl px-6 py-10">
+      <h1 className="text-4xl font-semibold tracking-tight">Your Library</h1>
+      <div className="border-border/60 mt-10 flex flex-col items-center rounded-2xl border border-dashed px-6 py-24 text-center">
+        <Headphones className="text-muted-foreground/40 size-12" />
+        <h2 className="mt-5 text-lg font-medium">Nothing on the shelf yet</h2>
+        <p className="text-muted-foreground mt-2 max-w-md text-sm leading-relaxed">
+          Search YouTube from inside the app, or paste a link to any audiobook. Chapters and
+          transcripts come along automatically.
+        </p>
+        <Button asChild className="mt-7 h-10">
+          <Link href="/discover">
+            <BookPlus className="size-4" />
+            Find an audiobook
+          </Link>
+        </Button>
+      </div>
+    </div>
+  );
+}

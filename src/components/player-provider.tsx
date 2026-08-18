@@ -335,67 +335,80 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     >
       {children}
 
-      {/* One host, never remounted. Docked bottom-right until a page claims it. */}
+      {/* One host, never remounted — moving an iframe in the DOM reloads it. When a page
+          offers a slot it is positioned over it; otherwise it sits inside the mini bar. */}
       <div
         ref={hostRef}
         className={cn(
-          "fixed z-50 overflow-hidden bg-black transition-[opacity] duration-200",
+          "fixed z-50 overflow-hidden bg-black transition-opacity duration-300",
           track ? "opacity-100" : "pointer-events-none opacity-0",
-          docked ? "right-4 bottom-4 h-[68px] w-[120px] rounded-l-lg" : "",
+          docked ? "right-5 bottom-5 h-[72px] w-32 rounded-l-xl" : "",
         )}
-        style={docked ? undefined : { position: "fixed" }}
       >
         <div ref={mountRef} className="size-full" />
       </div>
 
       {track && docked && (
-        <div className="bg-card/95 fixed right-4 bottom-4 z-40 flex items-center gap-3 rounded-lg border py-2 pr-3 pl-[132px] shadow-2xl backdrop-blur">
-          <div className="min-w-0 max-w-[220px]">
-            <Link
-              href={`/book/${track.bookId}/play/${track.partId}`}
-              className="hover:text-primary block truncate text-xs font-medium"
-            >
-              {track.bookTitle}
-            </Link>
-            <p className="text-muted-foreground truncate text-xs tabular-nums">
-              {formatTime(state.currentTime)}
-              {state.duration > 0 && ` / ${formatTime(state.duration)}`}
-            </p>
-            <div className="bg-secondary mt-1 h-1 w-full overflow-hidden rounded-full">
-              <div className="bg-primary h-full" style={{ width: `${pct}%` }} />
-            </div>
-          </div>
+        <div className="animate-in slide-in-from-bottom-4 fade-in fixed right-5 bottom-5 z-40 flex items-stretch overflow-hidden rounded-xl border bg-card/95 shadow-2xl backdrop-blur duration-300">
+          {/* Spacer matching the video host that sits on top of it. */}
+          <div className="h-[72px] w-32 shrink-0" aria-hidden />
 
-          <button
-            onClick={() => nudge(-15)}
-            className="text-muted-foreground hover:text-foreground grid size-9 place-items-center"
-            aria-label="Back 15 seconds"
-          >
-            <RotateCcw className="size-4" />
-          </button>
-          <button
-            onClick={toggle}
-            className="bg-primary text-primary-foreground grid size-10 place-items-center rounded-full"
-            aria-label={state.playing ? "Pause" : "Play"}
-          >
-            {state.playing ? <Pause className="size-4" /> : <Play className="size-4" />}
-          </button>
-          <button
-            onClick={() => nudge(30)}
-            className="text-muted-foreground hover:text-foreground grid size-9 place-items-center"
-            aria-label="Forward 30 seconds"
-          >
-            <RotateCw className="size-4" />
-          </button>
-          <button
-            onClick={stop}
-            className="text-muted-foreground hover:text-foreground grid size-9 place-items-center"
-            aria-label="Close player"
-          >
-            <X className="size-4" />
-          </button>
+          <div className="flex items-center gap-1 py-2 pr-2 pl-4">
+            <div className="mr-2 min-w-0 max-w-[200px]">
+              <Link
+                href={`/book/${track.bookId}/play/${track.partId}`}
+                className="hover:text-primary block truncate text-sm leading-tight font-medium transition-colors"
+              >
+                {track.bookTitle}
+              </Link>
+              <p className="text-muted-foreground mt-0.5 truncate text-xs tabular-nums">
+                {formatTime(state.currentTime)}
+                {state.duration > 0 && (
+                  <span className="text-muted-foreground/50">
+                    {" "}/ {formatTime(state.duration)}
+                  </span>
+                )}
+              </p>
+              <div className="bg-secondary mt-1.5 h-1 w-full overflow-hidden rounded-full">
+                <div
+                  className="bg-primary h-full rounded-full transition-[width] duration-500"
+                  style={{ width: `${pct}%` }}
+                />
+              </div>
+            </div>
+
+            <button
+              onClick={() => nudge(-15)}
+              className="text-muted-foreground hover:text-foreground hover:bg-accent grid size-9 place-items-center rounded-md transition-colors"
+              aria-label="Back 15 seconds"
+            >
+              <RotateCcw className="size-4" />
+            </button>
+            <button
+              onClick={toggle}
+              className="bg-primary text-primary-foreground grid size-10 place-items-center rounded-full transition-transform hover:scale-105 active:scale-95"
+              aria-label={state.playing ? "Pause" : "Play"}
+            >
+              {state.playing ? <Pause className="size-4" /> : <Play className="size-4" />}
+            </button>
+            <button
+              onClick={() => nudge(30)}
+              className="text-muted-foreground hover:text-foreground hover:bg-accent grid size-9 place-items-center rounded-md transition-colors"
+              aria-label="Forward 30 seconds"
+            >
+              <RotateCw className="size-4" />
+            </button>
+            <button
+              onClick={stop}
+              className="text-muted-foreground hover:text-foreground hover:bg-accent ml-1 grid size-8 place-items-center rounded-md transition-colors"
+              aria-label="Close player"
+            >
+              <X className="size-3.5" />
+            </button>
+          </div>
         </div>
       )}
+
     </PlayerContext.Provider>
   );
 }

@@ -11,6 +11,30 @@ import type { Ebook, SyncMark } from "@/lib/types";
 type Block = { index: number; kind: "heading" | "para"; text: string; chapter: number };
 type Chapter = { index: number; title: string; firstBlock: number };
 
+type ReadingTheme = "dark" | "sepia" | "paper";
+
+/** Reading surfaces, matching what e-readers offer: night, warm, and plain paper. */
+const THEMES: Record<ReadingTheme, { label: string; surface: string; body: string; heading: string }> = {
+  dark: {
+    label: "Night",
+    surface: "bg-transparent",
+    body: "text-foreground/85",
+    heading: "text-foreground",
+  },
+  sepia: {
+    label: "Sepia",
+    surface: "bg-[#f4ecd8]",
+    body: "text-[#4a3f35]",
+    heading: "text-[#2f2721]",
+  },
+  paper: {
+    label: "Paper",
+    surface: "bg-[#fbfbf9]",
+    body: "text-[#33322e]",
+    heading: "text-[#16150f]",
+  },
+};
+
 type Props = {
   ebook: Ebook;
   partId: string;
@@ -30,12 +54,30 @@ export function EbookReader({ ebook, partId, videoId, currentTime, onSeek }: Pro
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fontSize, setFontSize] = useState(17);
+  const [theme, setTheme] = useState<ReadingTheme>("dark");
+  const [serif, setSerif] = useState(true);
   const [marks, setMarks] = useState<SyncMark[]>(ebook.syncMarks ?? []);
   const [following, setFollowing] = useState(true);
   const [aligning, setAligning] = useState(false);
   const [alignStatus, setAlignStatus] = useState<string | null>(null);
   const [showContents, setShowContents] = useState(false);
   const [manualBlock, setManualBlock] = useState<number | null>(null);
+
+  // Remember reading preferences across sessions.
+  useEffect(() => {
+    const t = window.localStorage.getItem("shelf:readTheme") as ReadingTheme | null;
+    if (t && t in THEMES) setTheme(t);
+    const f = window.localStorage.getItem("shelf:readSize");
+    if (f) setFontSize(Number(f));
+    const sf = window.localStorage.getItem("shelf:readSerif");
+    if (sf !== null) setSerif(sf === "1");
+  }, []);
+
+  useEffect(() => {
+    window.localStorage.setItem("shelf:readTheme", theme);
+    window.localStorage.setItem("shelf:readSize", String(fontSize));
+    window.localStorage.setItem("shelf:readSerif", serif ? "1" : "0");
+  }, [theme, fontSize, serif]);
 
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const activeRef = useRef<HTMLParagraphElement | null>(null);
@@ -241,6 +283,34 @@ export function EbookReader({ ebook, partId, videoId, currentTime, onSeek }: Pro
           </Button>
         </div>
 
+        <Button
+          size="sm"
+          variant="ghost"
+          className="h-9 px-2 text-xs"
+          onClick={() => setSerif((v) => !v)}
+          title="Toggle serif"
+        >
+          <span className={serif ? "font-serif" : "font-sans"}>Aa</span>
+        </Button>
+
+        <div className="flex items-center gap-0.5">
+          {(Object.keys(THEMES) as ReadingTheme[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => setTheme(t)}
+              title={THEMES[t].label}
+              aria-label={THEMES[t].label}
+              className={cn(
+                "size-6 rounded-full border transition-all",
+                t === "dark" && "bg-neutral-900",
+                t === "sepia" && "bg-[#f4ecd8]",
+                t === "paper" && "bg-[#fbfbf9]",
+                theme === t ? "ring-primary scale-110 ring-2" : "border-border/60 hover:scale-105",
+              )}
+            />
+          ))}
+        </div>
+
         <div className="ml-auto flex items-center gap-1.5">
           <Button
             size="sm"
@@ -311,8 +381,12 @@ export function EbookReader({ ebook, partId, videoId, currentTime, onSeek }: Pro
         </div>
       )}
 
-      <div ref={scrollRef} className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-        <div className="mx-auto max-w-[62ch]">
+      <div
+        ref={scrollRef}
+        className={cn("min-h-0 flex-1 overflow-y-auto px-6 py-6 transition-colors", THEMES[theme].surface)}
+      >
+        {/* ~62 characters is the measure long-form prose reads best at. */}
+        <div className={cn("mx-auto max-w-[62ch]", serif ? "font-serif" : "font-sans")}>
           {blocks.map((b) => {
             const isActive = b.index === activeBlock;
             return b.kind === "heading" ? (
@@ -321,10 +395,11 @@ export function EbookReader({ ebook, partId, videoId, currentTime, onSeek }: Pro
                 ref={isActive ? (activeRef as never) : undefined}
                 onClick={() => onBlockClick(b.index)}
                 className={cn(
-                  "mt-7 mb-3 cursor-pointer scroll-mt-8 rounded px-2 py-1 font-semibold tracking-tight transition-colors",
-                  isActive ? "bg-primary/15 text-foreground" : "hover:bg-accent/40",
+                  "mt-10 mb-4 cursor-pointer scroll-mt-8 rounded-md px-2 py-1 font-semibold tracking-tight transition-colors",
+                  isActive ? "bg-primary/20" : "hover:bg-black/5 dark:hover:bg-white/5",
+                  THEMES[theme].heading,
                 )}
-                style={{ fontSize: `${fontSize + 3}px` }}
+                style={{ fontSize: `${fontSize + 4}px` }}
               >
                 {b.text}
               </h3>
@@ -334,17 +409,18 @@ export function EbookReader({ ebook, partId, videoId, currentTime, onSeek }: Pro
                 ref={isActive ? activeRef : undefined}
                 onClick={() => onBlockClick(b.index)}
                 className={cn(
-                  "-mx-2 cursor-pointer rounded px-2 py-1 transition-colors",
+                  "-mx-2 cursor-pointer rounded-md px-2 py-1 transition-colors",
                   isActive
-                    ? "bg-primary/15 text-foreground"
-                    : "text-foreground/80 hover:bg-accent/40",
+                    ? "bg-primary/20"
+                    : cn(THEMES[theme].body, "hover:bg-black/5 dark:hover:bg-white/5"),
                 )}
-                style={{ fontSize: `${fontSize}px`, lineHeight: 1.75 }}
+                style={{ fontSize: `${fontSize}px`, lineHeight: 1.8 }}
               >
                 {b.text}
               </p>
             );
           })}
+          <div className="h-24" />
         </div>
       </div>
     </div>
