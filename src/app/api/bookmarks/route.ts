@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
+import { quoteAt } from "@/lib/quote";
+import type { TranscriptCue } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -29,6 +31,21 @@ export async function POST(req: Request) {
   const parsed = createSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid body" }, { status: 400 });
 
-  const bookmark = await prisma.bookmark.create({ data: parsed.data });
+  // Capture what was being said, from the transcript already cached on the part — a
+  // bookmark you can read beats a list of timestamps.
+  let quote: string | null = null;
+  const part = await prisma.part.findUnique({
+    where: { id: parsed.data.partId },
+    select: { transcriptJson: true },
+  });
+  if (part?.transcriptJson) {
+    try {
+      quote = quoteAt(JSON.parse(part.transcriptJson) as TranscriptCue[], parsed.data.timeSec);
+    } catch {
+      // A malformed cache shouldn't stop the bookmark being saved.
+    }
+  }
+
+  const bookmark = await prisma.bookmark.create({ data: { ...parsed.data, quote } });
   return NextResponse.json({ bookmark });
 }

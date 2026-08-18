@@ -50,6 +50,8 @@ export type Bookmark = {
   timeSec: number;
   note: string | null;
   label: string | null;
+  /** What the narrator was saying at this moment, from the transcript. */
+  quote: string | null;
   createdAt: string;
   part?: { title: string; videoId: string; order: number };
 };

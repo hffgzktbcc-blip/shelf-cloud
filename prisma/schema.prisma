@@ -107,6 +107,8 @@ model Bookmark {
   timeSec   Float
   note      String?
   label     String?
+  /// What the narrator was saying at this moment, lifted from the transcript.
+  quote     String?
   createdAt DateTime @default(now())
 
   book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)

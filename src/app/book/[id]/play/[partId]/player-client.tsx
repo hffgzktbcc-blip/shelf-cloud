@@ -665,36 +665,49 @@ function BookmarkList({
       {bookmarks.map((b) => (
         <div
           key={b.id}
-          className="hover:bg-accent/50 group flex items-center gap-3 rounded-md px-3 py-2"
+          className="hover:bg-accent/50 group rounded-md px-3 py-2.5"
         >
-          <button
-            className="min-w-0 flex-1 text-left"
-            onClick={() => {
-              if (b.partId !== currentPartId) onJumpPart(b.partId);
-              else onSeek(b.timeSec);
-            }}
-          >
-            <div className="flex items-center gap-2">
-              <span className="text-primary font-mono text-xs tabular-nums">
-                {formatTime(b.timeSec)}
-              </span>
-              {b.partId !== currentPartId && (
-                <Badge variant="outline" className="px-1 py-0 text-xs">
-                  other part
-                </Badge>
-              )}
-            </div>
-            {b.label && <p className="text-muted-foreground mt-0.5 truncate text-xs">{b.label}</p>}
-          </button>
-          <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <button
+              className="text-primary font-mono text-xs tabular-nums"
+              onClick={() => {
+                if (b.partId !== currentPartId) onJumpPart(b.partId);
+                else onSeek(b.timeSec);
+              }}
+            >
+              {formatTime(b.timeSec)}
+            </button>
+            {b.partId !== currentPartId && (
+              <Badge variant="outline" className="px-1 py-0 text-xs">
+                other part
+              </Badge>
+            )}
+            {b.label && <span className="text-subtle-foreground text-xs">{b.label}</span>}
+            <button
+              onClick={() => onDelete(b.id)}
+              className="text-muted-foreground hover:text-destructive ml-auto text-xs opacity-0 transition-opacity group-hover:opacity-100"
+            >
+              Remove
+            </button>
+          </div>
+
+          {b.quote && (
+            <button
+              className="mt-1 block w-full text-left"
+              onClick={() => {
+                if (b.partId !== currentPartId) onJumpPart(b.partId);
+                else onSeek(b.timeSec);
+              }}
+            >
+              <p className="text-foreground/90 border-primary/40 border-l-2 pl-2.5 text-sm leading-relaxed">
+                {b.quote}
+              </p>
+            </button>
+          )}
+
+          <div className="mt-1">
             <BookmarkNote bookmark={b} onSave={onSaveNote} />
           </div>
-          <button
-            onClick={() => onDelete(b.id)}
-            className="text-muted-foreground hover:text-destructive text-xs opacity-0 transition-opacity group-hover:opacity-100"
-          >
-            Remove
-          </button>
         </div>
       ))}
     </div>

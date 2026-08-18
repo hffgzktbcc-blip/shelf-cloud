@@ -451,14 +451,20 @@ export function BookClient({ book, links }: Props) {
                   <Link
                     key={b.id}
                     href={`/book/${book.id}/play/${b.partId}`}
-                    className="hover:bg-accent/50 flex items-center gap-2 rounded-md px-2 py-1.5 text-sm"
+                    className="hover:bg-accent/50 block rounded-md px-2 py-2"
                   >
                     <span className="text-primary font-mono text-xs tabular-nums">
                       {formatTime(b.timeSec)}
                     </span>
-                    <span className="text-muted-foreground truncate text-xs">
-                      {b.label ?? "Bookmark"}
-                    </span>
+                    {b.quote ? (
+                      <p className="text-muted-foreground mt-1 line-clamp-2 text-xs leading-relaxed">
+                        {b.quote}
+                      </p>
+                    ) : (
+                      <span className="text-muted-foreground ml-2 text-xs">
+                        {b.label ?? "Bookmark"}
+                      </span>
+                    )}
                   </Link>
                 ))}
               </div>
