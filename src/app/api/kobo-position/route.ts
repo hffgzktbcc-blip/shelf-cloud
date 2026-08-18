@@ -26,15 +26,30 @@ export async function GET(req: Request) {
 
   const [progress, ebooks] = await Promise.all([
     listProgress(),
-    prisma.ebook.findMany({ include: { book: { select: { id: true, title: true } } } }),
+    prisma.ebook.findMany({
+      include: {
+        book: { select: { id: true, title: true } },
+        syncMarks: { select: { blockIndex: true, timeSec: true, partId: true } },
+      },
+    }),
   ]);
 
-  // One hash lookup table for every ebook on disk.
-  const byHash = new Map<string, (typeof ebooks)[number]>();
+  const alignedCount = (e: (typeof ebooks)[number]) =>
+    e.syncMarks.filter((m) => m.blockIndex !== null).length;
+
+  // One hash bucket per document, holding every ebook that could be it.
+  //
+  // Collisions are normal, not exceptional: the same novel split across several YouTube
+  // uploads becomes several books, each with its own copy of the same EPUB and its own
+  // slice of the alignment. Keeping all candidates lets the position pick the part that
+  // actually covers it, instead of whichever row happened to be stored last.
+  const byHash = new Map<string, (typeof ebooks)[number][]>();
   for (const e of ebooks) {
     if (!e.filePath) continue;
     for (const h of documentHashes(path.join(STORAGE_DIR, e.filePath), e.fileName)) {
-      byHash.set(h, e);
+      const bucket = byHash.get(h);
+      if (bucket) bucket.push(e);
+      else byHash.set(h, [e]);
     }
   }
 
@@ -43,7 +58,9 @@ export async function GET(req: Request) {
   for (const p of progress) {
     // An explicit binding always wins over hash matching.
     const boundId = await getBinding(p.document);
-    const ebook = boundId ? ebooks.find((e) => e.id === boundId) : byHash.get(p.document);
+    const candidates = boundId
+      ? ebooks.filter((e) => e.id === boundId)
+      : (byHash.get(p.document) ?? []);
 
     const base = {
       document: p.document,
@@ -52,7 +69,7 @@ export async function GET(req: Request) {
       updatedAt: p.timestamp,
     };
 
-    if (!ebook) {
+    if (candidates.length === 0) {
       resolved.push({
         ...base,
         bookId: null,
@@ -65,22 +82,31 @@ export async function GET(req: Request) {
       continue;
     }
 
-    const blocks = ebook.blocksJson
-      ? ((JSON.parse(ebook.blocksJson).blocks ?? []) as { index: number; text: string }[])
-      : [];
-    const blockIndex = blockAtPercentage(blocks, p.percentage);
+    // Score every candidate, then keep the one that resolves to a real timestamp.
+    const scored = candidates.map((ebook) => {
+      const blocks = ebook.blocksJson
+        ? ((JSON.parse(ebook.blocksJson).blocks ?? []) as { index: number; text: string }[])
+        : [];
+      const blockIndex = blockAtPercentage(blocks, p.percentage);
+      const at =
+        blockIndex !== null
+          ? timeAtBlock(blockIndex, ebook.syncMarks)
+          : { coverage: "unaligned" as const };
+      return { ebook, blockIndex, at };
+    });
 
-    const marks = await prisma.syncMark.findMany({ where: { ebookId: ebook.id } });
-    const at = blockIndex !== null ? timeAtBlock(blockIndex, marks) : { coverage: "unaligned" as const };
+    const best =
+      scored.find((c) => c.at.coverage === "ok") ??
+      scored.sort((a, b) => alignedCount(b.ebook) - alignedCount(a.ebook))[0];
 
     resolved.push({
       ...base,
-      bookId: ebook.book.id,
-      bookTitle: ebook.book.title,
-      blockIndex,
-      timeSec: at.coverage === "ok" ? at.timeSec : null,
-      partId: at.coverage === "ok" ? at.partId : null,
-      coverage: at.coverage,
+      bookId: best.ebook.book.id,
+      bookTitle: best.ebook.book.title,
+      blockIndex: best.blockIndex,
+      timeSec: best.at.coverage === "ok" ? best.at.timeSec : null,
+      partId: best.at.coverage === "ok" ? best.at.partId : null,
+      coverage: best.at.coverage,
     });
   }
 

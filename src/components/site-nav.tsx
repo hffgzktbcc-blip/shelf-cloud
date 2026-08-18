@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookAudio, Library, Search, Settings } from "lucide-react";
+import { BookAudio, FileText, Library, Search, Settings } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const links = [
   { href: "/", label: "Library", icon: Library },
   { href: "/discover", label: "Discover", icon: Search },
+  { href: "/ebooks", label: "Ebooks", icon: FileText },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
