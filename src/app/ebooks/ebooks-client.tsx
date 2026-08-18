@@ -1,7 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { AlertTriangle, BookOpen, Check, FileText, Waypoints } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { AlertTriangle, BookOpen, Check, Copy, FileText, Loader2, Waypoints } from "lucide-react";
+import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Cover } from "@/components/cover";
@@ -32,6 +35,18 @@ export function EbooksClient({ rows }: { rows: EbookRow[] }) {
 
   if (rows.length === 0) return <Empty />;
 
+  // The same file loaded twice leaves a redundant row. Whichever copy has the most
+  // alignment is the one worth keeping; the rest are safe to drop.
+  const bestByName = new Map<string, string>();
+  for (const r of rows) {
+    const best = bestByName.get(r.fileName);
+    const bestRow = rows.find((x) => x.id === best);
+    if (!bestRow || r.aligned > bestRow.aligned) bestByName.set(r.fileName, r.id);
+  }
+  const redundant = new Set(
+    rows.filter((r) => bestByName.get(r.fileName) !== r.id).map((r) => r.id),
+  );
+
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-9">
@@ -47,7 +62,7 @@ export function EbooksClient({ rows }: { rows: EbookRow[] }) {
 
       <div className="space-y-2">
         {rows.map((r) => (
-          <Row key={r.id} row={r} />
+          <Row key={r.id} row={r} redundant={redundant.has(r.id)} />
         ))}
       </div>
 
@@ -60,8 +75,23 @@ export function EbooksClient({ rows }: { rows: EbookRow[] }) {
   );
 }
 
-function Row({ row }: { row: EbookRow }) {
+function Row({ row, redundant }: { row: EbookRow; redundant: boolean }) {
   const isAligned = row.aligned > 1;
+  const [removing, setRemoving] = useState(false);
+  const router = useRouter();
+
+  async function remove() {
+    setRemoving(true);
+    try {
+      const res = await fetch(`/api/ebooks/${row.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Could not remove that file");
+      toast.success("Duplicate removed");
+      router.refresh();
+    } catch (e) {
+      toast.error((e as Error).message);
+      setRemoving(false);
+    }
+  }
 
   return (
     <div className="bg-card/50 hover:bg-card/50 flex items-center gap-4 rounded-lg border p-3 transition-colors">
@@ -89,7 +119,19 @@ function Row({ row }: { row: EbookRow }) {
         )}
       </div>
 
-      <div className="shrink-0">
+      <div className="flex shrink-0 items-center gap-2">
+        {redundant && (
+          <>
+            <Badge variant="outline" className="gap-1 text-xs">
+              <Copy className="size-3" />
+              Duplicate
+            </Badge>
+            <Button size="sm" variant="ghost" onClick={remove} disabled={removing}>
+              {removing ? <Loader2 className="size-3.5 animate-spin" /> : null}
+              Remove
+            </Button>
+          </>
+        )}
         {row.missing ? (
           <Badge variant="outline" className="gap-1 text-amber-500">
             <AlertTriangle className="size-3" />

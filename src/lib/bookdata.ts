@@ -103,6 +103,7 @@ async function fromOpenLibrary(
 async function fromGoogleBooks(
   title: string,
   author?: string | null,
+  apiKey?: string | null,
 ): Promise<{ items: BookCandidate[]; status: SourceStatus }> {
   const q = [`intitle:${title}`, author ? `inauthor:${author}` : ""].filter(Boolean).join("+");
   const url = new URL("https://www.googleapis.com/books/v1/volumes");
@@ -111,7 +112,8 @@ async function fromGoogleBooks(
   url.searchParams.set("printType", "books");
   // Keyless requests share one global quota that is routinely exhausted by mid-day. A free
   // personal key gets its own, much larger allowance.
-  if (process.env.GOOGLE_BOOKS_API_KEY) url.searchParams.set("key", process.env.GOOGLE_BOOKS_API_KEY);
+  const key = apiKey || process.env.GOOGLE_BOOKS_API_KEY;
+  if (key) url.searchParams.set("key", key);
 
   const res = await fetch(url, { headers: { "User-Agent": UA }, cache: "no-store" });
   if (!res.ok) {
@@ -189,10 +191,11 @@ async function fromAppleBooks(
 async function gather(
   title: string,
   author?: string | null,
+  apiKey?: string | null,
 ): Promise<{ raw: BookCandidate[]; sources: LookupResult["sources"] }> {
   const [ol, gb, ap] = await Promise.allSettled([
     fromOpenLibrary(title, author),
-    fromGoogleBooks(title, author),
+    fromGoogleBooks(title, author, apiKey),
     fromAppleBooks(title, author),
   ]);
   const fail = { items: [] as BookCandidate[], status: "error" as const };
@@ -231,8 +234,9 @@ const STRONG = 0.6;
 export async function findBookMetadata(
   title: string,
   author?: string | null,
+  apiKey?: string | null,
 ): Promise<LookupResult> {
-  const first = await gather(title, author);
+  const first = await gather(title, author, apiKey);
   let raw = first.raw;
   let sources = first.sources;
   let best = pick(raw);
@@ -245,7 +249,7 @@ export async function findBookMetadata(
   // The "author" is often the uploading channel rather than a person — "Elite Audiobooks",
   // "Nightstand s" — which both filters and pollutes the search term.
   if (weak() && author) {
-    const retry = await gather(title);
+    const retry = await gather(title, null, apiKey);
     raw = [...raw, ...retry.raw];
     sources = retry.sources;
     best = pick(raw);
@@ -254,7 +258,7 @@ export async function findBookMetadata(
   // Audiobook uploads bolt a marketing subtitle onto the real title.
   const bare = title.split(/[:—–|]/)[0].trim();
   if (weak() && bare.length > 6 && bare !== title) {
-    const retry = await gather(bare);
+    const retry = await gather(bare, null, apiKey);
     raw = [...raw, ...retry.raw.map((c) => ({ ...c, score: scoreMatch(c.title, c.authors, bare) }))];
     sources = retry.sources;
     best = pick(raw);

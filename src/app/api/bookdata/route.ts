@@ -50,8 +50,14 @@ export async function GET(req: Request) {
   if (!book) return NextResponse.json({ error: "Book not found" }, { status: 404 });
 
   try {
+    const googleKey = await prisma.setting.findUnique({ where: { key: "googleBooksApiKey" } });
+
     const [result, epub] = await Promise.all([
-      findBookMetadata(override || book.title, override ? null : book.author),
+      findBookMetadata(
+        override || book.title,
+        override ? null : book.author,
+        googleKey?.value ?? null,
+      ),
       // A custom search means the user is deliberately looking elsewhere.
       override ? Promise.resolve([]) : fromLoadedEbook(bookId, book.title),
     ]);

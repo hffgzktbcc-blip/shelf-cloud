@@ -7,6 +7,7 @@ export const dynamic = "force-dynamic";
 
 const ALLOWED = [
   "youtubeApiKey",
+  "googleBooksApiKey",
   "playbackRate",
   "sleepTimerMin",
   "theme",

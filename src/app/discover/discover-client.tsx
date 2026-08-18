@@ -14,7 +14,11 @@ import { formatDuration } from "@/lib/format";
 import { GENRES, type Genre } from "@/lib/genres";
 import type { SearchHit } from "@/lib/types";
 
-export function DiscoverClient() {
+export function DiscoverClient({
+  suggestions,
+}: {
+  suggestions?: { authors: string[]; narrators: string[] };
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [url, setUrl] = useState("");
@@ -25,11 +29,15 @@ export function DiscoverClient() {
 
   async function runSearch(e: React.FormEvent) {
     e.preventDefault();
-    if (!query.trim()) return;
+    void searchFor(query);
+  }
+
+  async function searchFor(term: string) {
+    if (!term.trim()) return;
     setSearching(true);
     setResults(null);
     try {
-      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(query)}`);
+      const res = await fetch(`/api/youtube/search?q=${encodeURIComponent(term)}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Search failed");
       setResults(data.items ?? []);
@@ -104,6 +112,44 @@ export function DiscoverClient() {
           <p className="text-muted-foreground mt-2 text-xs">
             Results are filtered to long videos, which is where full audiobooks live.
           </p>
+
+          {!results && !searching && suggestions && (
+            <div className="mt-9 space-y-7">
+              {suggestions.authors.length > 0 && (
+                <SuggestionRow
+                  label="More from authors you're reading"
+                  items={suggestions.authors}
+                  onPick={(t) => {
+                    setQuery(t);
+                    void searchFor(t);
+                  }}
+                />
+              )}
+              {suggestions.narrators.length > 0 && (
+                <SuggestionRow
+                  label="Narrators you've listened to"
+                  items={suggestions.narrators}
+                  onPick={(t) => {
+                    setQuery(t);
+                    void searchFor(t);
+                  }}
+                />
+              )}
+              <SuggestionRow
+                label="Somewhere to start"
+                items={[
+                  "classic literature full audiobook",
+                  "science fiction full audiobook",
+                  "mystery full audiobook",
+                  "history full audiobook",
+                ]}
+                onPick={(t) => {
+                  setQuery(t);
+                  void searchFor(t);
+                }}
+              />
+            </div>
+          )}
 
           {searching && (
             <div className="text-muted-foreground mt-10 flex flex-col items-center gap-3 text-sm">
@@ -292,5 +338,35 @@ function ResultRow({ hit, busy, onAdd }: { hit: SearchHit; busy: boolean; onAdd:
         Add
       </Button>
     </Card>
+  );
+}
+
+/** Clickable starting points, so the page isn't a blank box waiting for inspiration. */
+function SuggestionRow({
+  label,
+  items,
+  onPick,
+}: {
+  label: string;
+  items: string[];
+  onPick: (term: string) => void;
+}) {
+  return (
+    <div>
+      <p className="text-subtle-foreground mb-2.5 text-xs font-medium tracking-[0.14em] uppercase">
+        {label}
+      </p>
+      <div className="flex flex-wrap gap-2">
+        {items.map((item) => (
+          <button
+            key={item}
+            onClick={() => onPick(item)}
+            className="border-border/70 hover:border-primary/60 hover:text-foreground text-muted-foreground rounded-full border px-3.5 py-1.5 text-sm transition-colors"
+          >
+            {item}
+          </button>
+        ))}
+      </div>
+    </div>
   );
 }
