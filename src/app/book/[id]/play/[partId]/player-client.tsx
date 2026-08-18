@@ -277,14 +277,29 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
 
             {audioOnly && (
               <div className="bg-background absolute inset-0 flex flex-col items-center justify-center gap-4">
+                {/* The jacket, blurred, lights the pane — the same treatment as the home
+                    hero, so a book colours its own player. */}
+                {book.coverUrl && (
+                  <>
+                    <div
+                      aria-hidden
+                      className="absolute inset-0 scale-125 bg-cover bg-center opacity-40 blur-3xl saturate-150"
+                      style={{ backgroundImage: `url(${book.coverUrl})` }}
+                    />
+                    <div
+                      aria-hidden
+                      className="from-background/70 via-background/40 to-background/80 absolute inset-0 bg-gradient-to-b"
+                    />
+                  </>
+                )}
                 <Cover
                   src={book.coverUrl}
                   className={cn(
-                    "h-64 w-44 rounded-xl shadow-2xl ring-1 ring-white/10 transition-transform duration-700",
+                    "relative h-64 w-44 rounded-xl shadow-2xl ring-1 ring-white/10 transition-transform duration-700",
                     state.playing ? "scale-100" : "scale-95 opacity-80",
                   )}
                 />
-                <div className="flex items-end gap-1 h-4">
+                <div className="relative flex items-end gap-1 h-4">
                   {[0, 1, 2, 3, 4].map((i) => (
                     <span
                       key={i}
