@@ -28,6 +28,7 @@ import { formatDuration, formatTime } from "@/lib/format";
 import { parseAudiobookTitle } from "@/lib/title";
 import { CalibrePicker } from "@/components/calibre-picker";
 import { KindleImport } from "@/components/kindle-import";
+import { KoboImport } from "@/components/kobo-import";
 import type { Book, SearchHit } from "@/lib/types";
 
 type Props = { book: Book; links: { name: string; url: string }[] };
@@ -210,6 +211,7 @@ export function BookClient({ book, links }: Props) {
               onImported={() => router.refresh()}
             />
             <KindleImport bookId={book.id} onImported={() => router.refresh()} />
+            <KoboImport bookId={book.id} onImported={() => router.refresh()} />
             <input
               ref={fileRef}
               type="file"
