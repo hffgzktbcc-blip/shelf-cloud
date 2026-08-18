@@ -40,6 +40,7 @@ import { KoboImport } from "@/components/kobo-import";
 import { CoverPicker } from "@/components/cover-picker";
 import { Cover } from "@/components/cover";
 import { KoboPosition } from "@/components/kobo-position";
+import { MergeBooks } from "@/components/merge-books";
 import type { Book, SearchHit } from "@/lib/types";
 
 type Props = { book: Book; links: { name: string; url: string }[] };
@@ -387,6 +388,8 @@ export function BookClient({ book, links }: Props) {
         </div>
 
         <div className="space-y-8">
+          <MergeBooks bookId={book.id} bookTitle={book.title} />
+
           <KoboPosition bookId={book.id} />
 
           <section>

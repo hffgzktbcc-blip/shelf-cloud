@@ -7,7 +7,43 @@ import { parseAudiobookTitle } from "@/lib/title";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function GET() {
+/** Ignores articles and punctuation, so "Pride & Prejudice" and "Pride and Prejudice" match. */
+function titleKey(t: string): string {
+  return t
+    .toLowerCase()
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\b(the|a|an|of|and)\b/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export async function GET(req: Request) {
+  const similarTo = new URL(req.url).searchParams.get("similarTo");
+
+  // Books that look like the same work. A novel arriving as several uploads is the usual
+  // way duplicates appear, so this powers the offer to combine them.
+  if (similarTo) {
+    const me = await prisma.book.findUnique({ where: { id: similarTo } });
+    if (!me) return NextResponse.json({ error: "Book not found" }, { status: 404 });
+
+    const others = await prisma.book.findMany({
+      where: { id: { not: similarTo } },
+      include: { parts: { orderBy: { order: "asc" }, select: { title: true } } },
+    });
+
+    const mine = titleKey(me.title);
+    return NextResponse.json({
+      similar: others
+        .filter((b) => titleKey(b.title) === mine)
+        .map((b) => ({
+          id: b.id,
+          title: b.title,
+          author: b.author,
+          partTitles: b.parts.map((p) => p.title),
+        })),
+    });
+  }
+
   const books = await prisma.book.findMany({
     orderBy: { updatedAt: "desc" },
     include: {

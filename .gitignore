@@ -47,3 +47,4 @@ dev.db
 dev.db-journal
 *.db
 /storage/
+dev.db.backup-*
