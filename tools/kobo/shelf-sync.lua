@@ -203,10 +203,9 @@ local stmt_ptr = ffi.new("sqlite3_stmt*[1]")
 -- nothing, silently, every time.
 local query = [[select ContentID, coalesce(___PercentRead, 0)
   from content
-  where DateLastRead is not null
-    and ContentType = 6
+  where ContentType = 6
     and IsDownloaded in ('true', '1', 1)
-  order by DateLastRead desc limit 20]]
+  order by DateLastRead desc, Title asc limit 100]]
 rc = sqlite.sqlite3_prepare_v2(db, query, -1, stmt_ptr, nil)
 if rc ~= SQLITE_OK then
   local message = ffi.string(sqlite.sqlite3_errmsg(db))

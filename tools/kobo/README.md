@@ -19,10 +19,11 @@ Stock-reader progress lives in `.kobo/KoboReader.sqlite`, in the `content` table
 - `DateLastRead` — when it was last opened
 - `ContentType` — 6 is a book; 9 and 899 are chapters and other sub-entries
 
-The script takes the twenty most recently read books and posts each position. Shelf replies with
-its current position when that book is linked and aligned, and the script writes that position
-back into the Kobo database. This means a newer position on either side can be carried across
-on the next sync.
+The script takes downloaded book entries from the stock Kobo and posts each position. Shelf
+replies with its current position when that book is linked and aligned, and the script writes
+that position back into the Kobo database. This means Shelf can push progress to a book before
+you have opened it on the Kobo, while a newer position on either side can be carried across on
+the next sync.
 
 Two things about this table are worth knowing, because both were found the hard way on a
 Clara Colour. `ContentType` must be filtered or chapter rows swamp the real titles. And
@@ -69,9 +70,9 @@ Setting `SHELF_HOST` is optional and only skips the first sweep.
 
 The interval defaults to 60 seconds and can be changed with `SHELF_INTERVAL` in
 `shelf-sync.conf`. Only one helper instance is allowed at a time. Each poll reads the stock
-reader's current percentage, sends it to Shelf, and writes Shelf's merged percentage back to
-the Kobo database. The existing monotonic rule means an older position cannot move either
-side backward.
+reader's downloaded book entries, sends them to Shelf, and writes Shelf's merged percentage
+back to the Kobo database. The existing monotonic rule means an older position cannot move
+either side backward.
 
 Use **Stop Shelf automatic sync** in NickelMenu when you want to stop the background helper
 and conserve battery.
