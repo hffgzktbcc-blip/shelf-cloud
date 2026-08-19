@@ -15,6 +15,8 @@ export const ACCEPT = "application/vnd.koreader.v1+json";
 
 export type Progress = {
   document: string;
+  /** The filename the device sent, kept so an unmatched sync is recognisable. */
+  label?: string;
   progress: string;
   percentage: number;
   device: string;
@@ -149,6 +151,8 @@ export async function getBinding(document: string): Promise<string | null> {
 
 export type ResolvedPosition = {
   document: string;
+  /** Something human-readable for an unmatched sync, when the device sent a path. */
+  label?: string | null;
   device: string;
   percentage: number;
   updatedAt: number;

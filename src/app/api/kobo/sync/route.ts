@@ -40,9 +40,16 @@ export async function POST(req: Request) {
   const parsed = bodySchema.safeParse(await req.json().catch(() => null));
   if (!parsed.success) return NextResponse.json({ error: "Invalid sync payload" }, { status: 400 });
 
+  const incoming = parsed.data.document;
+  const label = incoming.startsWith("file:")
+    ? path.basename(incoming.replace(/^file:\/\/+/, ""))
+    : incoming;
+
   const progress: Progress = {
     ...parsed.data,
-    document: shelfDocument(parsed.data.document),
+    document: shelfDocument(incoming),
+    // The stored key is a hash; without this an unmatched sync is unidentifiable.
+    label,
     timestamp: Math.floor(Date.now() / 1000),
   };
   await putProgress(progress);

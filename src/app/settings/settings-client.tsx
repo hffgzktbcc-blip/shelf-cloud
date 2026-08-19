@@ -14,6 +14,7 @@ import {
   Radio,
   SlidersHorizontal,
   Sparkles,
+  Tablet,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -294,6 +295,13 @@ function KoboSyncCard({ configured }: { configured: boolean }) {
         <div className="bg-muted rounded-md px-3 py-2 font-mono text-xs break-all">
           /api/kobo/sync
         </div>
+
+        <Button asChild variant="secondary" size="sm">
+          <Link href="/kobo">
+            <Tablet className="size-3.5" />
+            See what your Kobo has sent
+          </Link>
+        </Button>
 
         {token ? (
           <div className="space-y-1">

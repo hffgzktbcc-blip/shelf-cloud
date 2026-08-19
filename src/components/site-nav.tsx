@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BookAudio, ChartNoAxesColumn, FileText, House, Library, Search, Settings } from "lucide-react";
+import {
+  BookAudio,
+  ChartNoAxesColumn,
+  FileText,
+  House,
+  Library,
+  Search,
+  Settings,
+  Tablet,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const links = [
@@ -10,6 +19,7 @@ const links = [
   { href: "/library", label: "Library", icon: Library },
   { href: "/discover", label: "Discover", icon: Search },
   { href: "/ebooks", label: "Ebooks", icon: FileText },
+  { href: "/kobo", label: "Kobo", icon: Tablet },
   { href: "/stats", label: "Stats", icon: ChartNoAxesColumn },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
@@ -58,7 +68,7 @@ export function SiteNav() {
         </div>
       </header>
 
-      <nav className="border-border/60 bg-background/95 fixed inset-x-0 bottom-0 z-50 grid grid-cols-6 border-t backdrop-blur md:hidden">
+      <nav className="border-border/60 bg-background/95 fixed inset-x-0 bottom-0 z-50 grid grid-cols-7 border-t backdrop-blur md:hidden">
         {links.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (

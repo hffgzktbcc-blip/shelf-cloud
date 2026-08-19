@@ -64,6 +64,7 @@ export async function GET(req: Request) {
 
     const base = {
       document: p.document,
+      label: p.label ?? null,
       device: p.device,
       percentage: p.percentage,
       updatedAt: p.timestamp,
@@ -119,6 +120,14 @@ export async function GET(req: Request) {
     positions: bookId ? resolved.filter((r) => r.bookId === bookId) : resolved,
     unmatched: resolved.filter((r) => r.bookId === null),
     bindableEbookId,
+    // Everything an unmatched sync could be linked to, so the page can offer a choice
+    // rather than sending you elsewhere to make it.
+    linkable: ebooks.map((e) => ({
+      ebookId: e.id,
+      bookId: e.book.id,
+      bookTitle: e.book.title,
+      fileName: e.fileName,
+    })),
   });
 }
 
