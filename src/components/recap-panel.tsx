@@ -138,6 +138,7 @@ export function RecapPanel({
             value={question}
             onChange={(e) => setQuestion(e.target.value)}
             placeholder="Ask about what you've heard…"
+            aria-label="Ask about what you have heard"
             className="h-9 text-sm"
             disabled={busy}
           />

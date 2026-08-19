@@ -380,7 +380,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               className="shrink-0"
               aria-label={`Back to ${track.bookTitle}`}
             >
-              <Cover src={track.coverUrl} className="h-12 w-9 rounded ring-1 ring-white/10" />
+              <Cover src={track.coverUrl} className="h-12 w-9 rounded-md ring-1 ring-white/10" />
             </Link>
 
             <div className="min-w-0 flex-1">
@@ -395,7 +395,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               </p>
               <div className="bg-secondary mt-1.5 h-1 w-full overflow-hidden rounded-full">
                 <div
-                  className="bg-position h-full rounded-full transition-[width] duration-500"
+                  className="bg-position h-full rounded-full transition-[width] duration-300"
                   style={{ width: `${pct}%` }}
                 />
               </div>

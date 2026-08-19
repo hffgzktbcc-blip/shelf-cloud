@@ -213,6 +213,7 @@ export function TranscriptPanel({ videoId, currentTime, onSeek }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Search transcript…"
+            aria-label="Search the transcript"
             className="h-8 pl-8 text-xs"
           />
           {query && (
@@ -277,7 +278,7 @@ export function TranscriptPanel({ videoId, currentTime, onSeek }: Props) {
                       onClick={() => onSeek(cue.start)}
                       title={formatTime(cue.start)}
                       className={cn(
-                        "cursor-pointer rounded-sm transition-colors",
+                        "cursor-pointer rounded-md transition-colors",
                         active
                           ? "bg-position/25 text-foreground"
                           : "text-muted-foreground hover:text-foreground",

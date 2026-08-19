@@ -140,6 +140,7 @@ export function CoverPicker({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={`Searching for “${bookTitle.slice(0, 40)}” — type to search differently`}
+            aria-label="Search for a cover"
             className="h-9 pl-9"
           />
         </div>
@@ -158,8 +159,8 @@ export function CoverPicker({
             {sources?.google === "ratelimited" && (
               <p className="mt-4 text-xs leading-relaxed text-amber-500/90">
                 Google Books is out of quota, so only Open Library and Apple Books were searched.
-                A free <code className="bg-muted mx-1 rounded px-1">GOOGLE_BOOKS_API_KEY</code>
-                in <code className="bg-muted rounded px-1">.env</code> adds it back — see the README.
+                A free <code className="bg-muted mx-1 rounded-md px-1">GOOGLE_BOOKS_API_KEY</code>
+                in <code className="bg-muted rounded-md px-1">.env</code> adds it back — see the README.
               </p>
             )}
           </div>

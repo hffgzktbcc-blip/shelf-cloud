@@ -159,7 +159,7 @@ function Empty() {
   return (
     <div className="mx-auto max-w-5xl px-6 py-10">
       <h1 className="text-4xl font-semibold tracking-tight">Ebooks</h1>
-      <div className="border-border/60 mt-10 flex flex-col items-center rounded-2xl border border-dashed px-6 py-24 text-center">
+      <div className="border-border/60 mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-24 text-center">
         <FileText className="text-muted-foreground/40 size-12" />
         <h2 className="mt-5 text-lg font-medium">No ebooks loaded yet</h2>
         <p className="text-muted-foreground mt-2 max-w-md text-sm leading-relaxed">

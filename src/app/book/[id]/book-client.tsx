@@ -339,6 +339,7 @@ export function BookClient({ book, links }: Props) {
                 value={partUrl}
                 onChange={(e) => setPartUrl(e.target.value)}
                 placeholder="Paste the next part's YouTube link…"
+                aria-label="YouTube link for the next part"
                 className="h-9 text-sm"
               />
               <Button type="submit" size="sm" disabled={addingPart || !partUrl.trim()} className="h-9">
@@ -497,7 +498,7 @@ function SuggestionGroup({
         {hits.slice(0, 8).map((h) => (
           <Card key={h.videoId} className="flex flex-row items-center gap-3 p-2">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={h.thumbUrl} alt="" className="bg-muted h-12 w-20 shrink-0 rounded object-cover" />
+            <img src={h.thumbUrl} alt="" className="bg-muted h-12 w-20 shrink-0 rounded-md object-cover" />
             <div className="min-w-0 flex-1">
               <p className="line-clamp-2 text-xs leading-snug">{h.title}</p>
               <p className="text-muted-foreground mt-0.5 truncate text-xs">

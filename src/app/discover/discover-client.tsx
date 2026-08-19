@@ -102,6 +102,7 @@ export function DiscoverClient({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Title, author, or series…"
+              aria-label="Search YouTube for an audiobook"
               className="h-11"
             />
             <Button type="submit" disabled={searching || !query.trim()} className="h-11 px-5">
@@ -199,6 +200,7 @@ export function DiscoverClient({
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               placeholder="https://www.youtube.com/watch?v=…"
+              aria-label="YouTube link"
               className="h-11"
             />
             <Button type="submit" disabled={!url.trim() || addingId !== null} className="h-11 px-5">
@@ -287,7 +289,7 @@ function GenreShelf({
                   <img
                     src={h.thumbUrl}
                     alt=""
-                    className="bg-muted h-11 w-[74px] shrink-0 rounded object-cover"
+                    className="bg-muted h-11 w-[74px] shrink-0 rounded-md object-cover"
                   />
                   <div className="min-w-0 flex-1">
                     <p className="line-clamp-2 text-xs leading-snug">{h.title}</p>

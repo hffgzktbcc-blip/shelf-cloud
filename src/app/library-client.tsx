@@ -87,6 +87,7 @@ export function LibraryClient({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search your shelf…"
+              aria-label="Search your shelf"
               className="h-9 w-56 pl-9"
             />
             {query && (
@@ -135,7 +136,7 @@ export function LibraryClient({
 /** A passage you saved, handed back to you. */
 function PassageOfTheDay({ passage }: { passage: Passage }) {
   return (
-    <section className="relative overflow-hidden rounded-2xl border">
+    <section className="relative overflow-hidden rounded-xl border">
       {passage.coverUrl && (
         <>
           <div
@@ -184,7 +185,7 @@ function Hero({ book, playing }: { book: LibraryBook; playing: boolean }) {
     : `/book/${book.id}`;
 
   return (
-    <section className="relative overflow-hidden rounded-2xl border">
+    <section className="relative overflow-hidden rounded-xl border">
       {/* The cover, blurred, doubles as the backdrop so each book colours its own hero. */}
       {book.coverUrl && (
         <div
@@ -200,7 +201,7 @@ function Hero({ book, playing }: { book: LibraryBook; playing: boolean }) {
           <Cover
             src={book.coverUrl}
             className="size-40 rounded-xl shadow-2xl ring-1 ring-white/10 sm:size-48"
-            imgClassName="transition-transform duration-500 group-hover:scale-105"
+            imgClassName="transition-transform duration-300 group-hover:scale-105"
           />
         </Link>
 
@@ -289,18 +290,18 @@ function BookCard({ book, playing }: { book: LibraryBook; playing: boolean }) {
 
   return (
     <Link href={href} className="group block focus-visible:outline-none">
-      <div className="bg-muted relative aspect-square overflow-hidden rounded-xl shadow-lg ring-1 ring-white/8 transition-[transform,box-shadow] duration-300 group-hover:-translate-y-1 group-hover:shadow-2xl group-focus-visible:ring-2 group-focus-visible:ring-white/40">
+      <div className="bg-muted relative aspect-square overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/8 transition-[transform,box-shadow] duration-300 group-hover:-translate-y-1 group-hover:shadow-2xl group-focus-visible:ring-2 group-focus-visible:ring-white/40">
         <Cover
           src={book.coverUrl}
           className="absolute inset-0"
-          imgClassName="transition-transform duration-500 group-hover:scale-[1.04]"
+          imgClassName="transition-transform duration-300 group-hover:scale-[1.04]"
         />
 
         {/* Keeps the meta legible over bright cover art. */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 
         {playing && (
-          <span className="bg-primary text-primary-foreground absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium shadow">
+          <span className="bg-primary text-primary-foreground absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium shadow-sm">
             <AudioLines className="size-3" />
             Playing
           </span>
@@ -351,7 +352,7 @@ function EmptyLibrary() {
   return (
     <div className="mx-auto max-w-7xl px-6 py-10">
       <h1 className="text-4xl font-semibold tracking-tight">Your Library</h1>
-      <div className="border-border/60 mt-10 flex flex-col items-center rounded-2xl border border-dashed px-6 py-24 text-center">
+      <div className="border-border/60 mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-24 text-center">
         <Headphones className="text-muted-foreground/40 size-12" />
         <h2 className="mt-5 text-lg font-medium">Nothing on the shelf yet</h2>
         <p className="text-muted-foreground mt-2 max-w-md text-sm leading-relaxed">

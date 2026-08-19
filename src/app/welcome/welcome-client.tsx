@@ -100,7 +100,7 @@ function AppPreview() {
                   key={label}
                   className={`flex items-center gap-2 rounded-md p-1.5 ${i === 0 ? "bg-primary/15" : ""}`}
                 >
-                  <div className="bg-muted h-6 w-10 shrink-0 rounded-sm" />
+                  <div className="bg-muted h-6 w-10 shrink-0 rounded-md" />
                   <span className="text-muted-foreground truncate text-xs">{label}</span>
                 </div>
               ),
@@ -116,7 +116,7 @@ function AppPreview() {
           <div className="bg-secondary mt-4 h-1 w-full max-w-[190px] overflow-hidden rounded-full">
             <div className="bg-position h-full w-[31%] rounded-full" />
           </div>
-          <div className="text-muted-foreground mt-1.5 flex w-full max-w-[190px] justify-between text-[9px] tabular-nums">
+          <div className="text-muted-foreground mt-1.5 flex w-full max-w-[190px] justify-between text-[11px] tabular-nums">
             <span>00:31:30</span>
             <span>10:14:13</span>
           </div>
@@ -139,10 +139,10 @@ function AppPreview() {
             {chapters.map((c) => (
               <div
                 key={c.time}
-                className={`flex items-center gap-2 rounded px-1.5 py-1 ${c.active ? "bg-primary/15" : ""}`}
+                className={`flex items-center gap-2 rounded-md px-1.5 py-1 ${c.active ? "bg-primary/15" : ""}`}
               >
                 <span
-                  className={`font-mono text-[9px] tabular-nums ${c.active ? "text-primary" : "text-subtle-foreground"}`}
+                  className={`font-mono text-[11px] tabular-nums ${c.active ? "text-primary" : "text-subtle-foreground"}`}
                 >
                   {c.time}
                 </span>

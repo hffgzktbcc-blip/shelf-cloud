@@ -89,7 +89,7 @@ export function KindleImport({
               read.amazon.com/notebook
             </a>
             , pick the book, then copy its highlights and paste them here. A{" "}
-            <code className="bg-muted rounded px-1">My Clippings.txt</code> from a Kindle device
+            <code className="bg-muted rounded-md px-1">My Clippings.txt</code> from a Kindle device
             works too.
           </DialogDescription>
         </DialogHeader>

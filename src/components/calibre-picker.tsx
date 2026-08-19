@@ -98,7 +98,7 @@ export function CalibrePicker({
           <div className="text-muted-foreground py-6 text-center text-sm">
             <p>No Calibre library found.</p>
             <p className="mt-1 text-xs">
-              Looked in <code className="bg-muted rounded px-1">{library}</code>
+              Looked in <code className="bg-muted rounded-md px-1">{library}</code>
             </p>
           </div>
         ) : (
@@ -109,6 +109,7 @@ export function CalibrePicker({
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by title or author…"
+                aria-label="Search your Calibre library"
                 className="h-9 pl-8"
               />
             </div>

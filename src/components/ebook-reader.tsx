@@ -384,7 +384,7 @@ export function EbookReader({ ebook, partId, videoId, currentTime, onSeek }: Pro
                 savePosition(c.firstBlock);
                 setShowContents(false);
               }}
-              className="hover:bg-accent/50 block w-full truncate rounded px-2 py-1.5 text-left text-xs"
+              className="hover:bg-accent/50 block w-full truncate rounded-md px-2 py-1.5 text-left text-xs"
             >
               {c.title}
             </button>

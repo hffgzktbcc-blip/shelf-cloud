@@ -225,7 +225,7 @@ export function SettingsClient({ hasApiKey, hasGoogleKey, stats }: Props) {
               <div key={k} className="flex items-center justify-between">
                 <dt className="text-muted-foreground">{desc}</dt>
                 <dd>
-                  <kbd className="bg-muted rounded border px-1.5 py-0.5 font-mono text-xs">{k}</kbd>
+                  <kbd className="bg-muted rounded-md border px-1.5 py-0.5 font-mono text-xs">{k}</kbd>
                 </dd>
               </div>
             ))}

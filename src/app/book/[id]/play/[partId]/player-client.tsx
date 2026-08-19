@@ -305,7 +305,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
                 <Cover
                   src={book.coverUrl}
                   className={cn(
-                    "relative h-64 w-44 rounded-xl shadow-2xl ring-1 ring-white/10 transition-transform duration-700",
+                    "relative h-64 w-44 rounded-xl shadow-2xl ring-1 ring-white/10 transition-transform duration-300",
                     state.playing ? "scale-100" : "scale-95 opacity-80",
                   )}
                 />
@@ -783,7 +783,7 @@ function BookmarkNote({
         }
       }}
       placeholder="Why does this moment matter?"
-      className="bg-background focus:ring-ring mt-1 w-full rounded border px-2 py-1 text-xs focus:ring-1 focus:outline-none"
+      className="bg-background focus:ring-ring mt-1 w-full rounded-md border px-2 py-1 text-xs focus:ring-1 focus:outline-none"
     />
   );
 }

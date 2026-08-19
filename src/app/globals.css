@@ -4,6 +4,15 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Elevation is two steps of Tailwind's own scale rather than custom tokens: a custom
+   @theme shadow never compiled to a rule here, which silently removed every shadow in
+   the app. `shadow-sm` is anything resting in the page; `shadow-2xl` is anything
+   genuinely above it — the docked player, dialogs, popovers. */
+
+/* Motion has two speeds: duration-150 for state feedback you shouldn't notice, and
+   duration-300 for anything that moves or resizes. Tailwind v4 has no theme namespace
+   for transition-duration, so these stay numeric rather than pretending to be tokens. */
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
