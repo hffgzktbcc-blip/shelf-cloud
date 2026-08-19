@@ -17,8 +17,15 @@ Stock-reader progress lives in `.kobo/KoboReader.sqlite`, in the `content` table
 - `ContentID` — the document identifier; for a sideloaded book this is a `file://` path
 - `___PercentRead` — how far through, 0–100
 - `DateLastRead` — when it was last opened
+- `ContentType` — 6 is a book; 9 and 899 are chapters and other sub-entries
 
-The script takes the twenty most recently read downloaded books and posts each position.
+The script takes the twenty most recently read books and posts each position.
+
+Two things about this table are worth knowing, because both were found the hard way on a
+Clara Colour. `ContentType` must be filtered or chapter rows swamp the real titles. And
+`IsDownloaded` is not a boolean: the firmware writes the integer `1` on some rows and the
+strings `'true'`/`'false'` on others, and every row that has actually been read carries a
+string — so comparing it against `1` matches nothing and the sync silently sends nothing.
 
 Shelf matches a book by the MD5 of the filename, so a sideloaded EPUB matches the copy you
 loaded into Shelf even though the Kobo renamed it to `.kepub.epub`. Books bought from the

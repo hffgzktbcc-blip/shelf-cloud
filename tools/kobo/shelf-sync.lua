@@ -159,9 +159,18 @@ if rc ~= SQLITE_OK then
 end
 local db = db_ptr[0]
 local stmt_ptr = ffi.new("sqlite3_stmt*[1]")
+-- ContentType 6 is a book; 9 and 899 are chapters and other sub-entries, which have their
+-- own progress and would drown the real titles.
+--
+-- IsDownloaded is not a boolean in this database: the firmware writes the integer 1 for
+-- some rows and the strings 'true'/'false' for others. Every row that has actually been
+-- read carries a string, so comparing against 1 matched nothing at all and the sync sent
+-- nothing, silently, every time.
 local query = [[select ContentID, coalesce(___PercentRead, 0)
   from content
-  where DateLastRead is not null and IsDownloaded = 1
+  where DateLastRead is not null
+    and ContentType = 6
+    and IsDownloaded in ('true', '1', 1)
   order by DateLastRead desc limit 20]]
 rc = sqlite.sqlite3_prepare_v2(db, query, -1, stmt_ptr, nil)
 if rc ~= SQLITE_OK then
