@@ -13,6 +13,7 @@ import {
   Headphones,
   ListTree,
   Loader2,
+  MoreHorizontal,
   Pause,
   Play,
   RotateCcw,
@@ -20,6 +21,7 @@ import {
   SkipForward,
   Sparkles,
   Timer,
+  Trash2,
   Video,
   Wand2,
 } from "lucide-react";
@@ -58,6 +60,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
   const [detecting, setDetecting] = useState(false);
   // Audio-first by default: the cover view is the point, the video is incidental.
   const [audioOnly, setAudioOnly] = useState(true);
+  const [textMode, setTextMode] = useState<"transcript" | "ebook">("transcript");
   const startAt = useRef(part.positionSec).current;
 
   // Read after mount so the server render and first client render agree.
@@ -304,7 +307,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
                     <span
                       key={i}
                       className={cn(
-                        "bg-primary/70 w-1 rounded-full",
+                        "bg-muted-foreground/60 w-1 rounded-full",
                         state.playing ? "animate-pulse" : "opacity-30",
                       )}
                       style={{
@@ -337,34 +340,22 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
             </h1>
             <p className="text-subtle-foreground mt-0.5 text-sm">{book.title}</p>
             {activeChapter && (
-              <p className="text-primary mt-1 text-sm">{activeChapter.title}</p>
+              <p className="text-position mt-1 text-sm">{activeChapter.title}</p>
             )}
           </div>
 
           <div>
-            {/* A 6px bar is a hard target to hit. The padded wrapper gives it a ~20px
-                grab area while the visible bar stays slim. */}
-            <div
-              className="group relative -my-2 w-full cursor-pointer py-2"
-              onClick={(e) => {
-                const rect = e.currentTarget.getBoundingClientRect();
-                seekTo(((e.clientX - rect.left) / rect.width) * duration);
-              }}
-            >
-              <div className="bg-secondary relative h-1.5 w-full overflow-hidden rounded-full transition-all group-hover:h-2.5">
-                <div
-                  className="bg-primary h-full rounded-full"
-                  style={{ width: `${progressPct}%` }}
-                />
-                {chapters.map((c) => (
-                  <span
-                    key={c.id}
-                    className="bg-background/70 absolute top-0 h-full w-px"
-                    style={{ left: `${duration > 0 ? (c.startSec / duration) * 100 : 0}%` }}
-                  />
-                ))}
-              </div>
-            </div>
+            {/* Chapter ticks were 1px lines at 70% background: on a long part with forty
+                chapters that is forty hairlines a few pixels apart, invisible on a 6px
+                track and impossible to aim at. The track is segmented by chapter instead,
+                so chapters are the thing being scrubbed rather than marks drawn over it. */}
+            <ChapterTrack
+              chapters={chapters}
+              duration={duration}
+              currentTime={state.currentTime}
+              activeId={activeChapter?.id ?? null}
+              onSeek={seekTo}
+            />
             <div className="text-muted-foreground mt-1.5 flex items-center justify-between text-xs tabular-nums">
               <span>{formatTime(state.currentTime)}</span>
               {chapterRemaining !== null && (
@@ -461,30 +452,28 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
             short of the fold on every screen, leaving a dead band under the player. */}
         <div className="bg-card/50 h-[calc(100vh-8.5rem)] min-h-[520px] overflow-hidden rounded-xl border">
           <Tabs defaultValue="chapters" className="flex h-full flex-col gap-0">
-            <TabsList className="m-2 grid grid-cols-5">
+            <TabsList className="m-2 grid grid-cols-3">
               <TabsTrigger value="chapters" className="gap-1.5 text-xs">
                 <ListTree className="size-3.5" />
                 Chapters
               </TabsTrigger>
-              <TabsTrigger value="recap" className="gap-1.5 text-xs">
-                <Sparkles className="size-3.5" />
-                Recap
-              </TabsTrigger>
-              <TabsTrigger value="transcript" className="gap-1.5 text-xs">
+              <TabsTrigger value="text" className="gap-1.5 text-xs">
                 <FileText className="size-3.5" />
-                Transcript
-              </TabsTrigger>
-              <TabsTrigger value="ebook" className="gap-1.5 text-xs">
-                <BookOpen className="size-3.5" />
-                Ebook
+                Text
               </TabsTrigger>
               <TabsTrigger value="bookmarks" className="gap-1.5 text-xs">
                 <Bookmark className="size-3.5" />
-                Marks
+                Bookmarks
               </TabsTrigger>
             </TabsList>
 
             <TabsContent value="chapters" className="min-h-0 flex-1 overflow-y-auto p-2">
+              <RecapPanel
+                partId={part.id}
+                currentTime={state.currentTime}
+                onSeek={seekTo}
+                compact
+              />
               <ChapterList
                 chapters={chapters}
                 activeId={activeChapter?.id ?? null}
@@ -495,36 +484,49 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
               />
             </TabsContent>
 
-            <TabsContent value="recap" className="min-h-0 flex-1">
-              <RecapPanel partId={part.id} currentTime={state.currentTime} onSeek={seekTo} />
-            </TabsContent>
+            <TabsContent value="text" className="flex min-h-0 flex-1 flex-col">
+              <div className="flex items-center gap-1 border-b px-2 py-1.5">
+                {(["transcript", "ebook"] as const).map((mode) => (
+                  <button
+                    key={mode}
+                    onClick={() => setTextMode(mode)}
+                    className={cn(
+                      "rounded-md px-2.5 py-1 text-xs transition-colors",
+                      textMode === mode
+                        ? "bg-secondary text-foreground"
+                        : "text-muted-foreground hover:text-foreground",
+                    )}
+                  >
+                    {mode === "transcript" ? "Transcript" : "Ebook"}
+                  </button>
+                ))}
+              </div>
 
-            <TabsContent value="transcript" className="min-h-0 flex-1">
-              <TranscriptPanel
-                videoId={part.videoId}
-                currentTime={state.currentTime}
-                onSeek={seekTo}
-              />
-            </TabsContent>
-
-            <TabsContent value="ebook" className="min-h-0 flex-1">
-              {ebook ? (
-                <EbookReader
-                  ebook={ebook}
-                  partId={part.id}
-                  videoId={part.videoId}
-                  currentTime={state.currentTime}
-                  onSeek={seekTo}
-                />
-              ) : (
-                <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-sm">
-                  <BookOpen className="size-8 opacity-40" />
-                  <p>No ebook loaded for this book yet.</p>
-                  <Button asChild size="sm" variant="secondary">
-                    <Link href={`/book/${book.id}`}>Upload an EPUB</Link>
-                  </Button>
-                </div>
-              )}
+              <div className="min-h-0 flex-1">
+                {textMode === "transcript" ? (
+                  <TranscriptPanel
+                    videoId={part.videoId}
+                    currentTime={state.currentTime}
+                    onSeek={seekTo}
+                  />
+                ) : ebook ? (
+                  <EbookReader
+                    ebook={ebook}
+                    partId={part.id}
+                    videoId={part.videoId}
+                    currentTime={state.currentTime}
+                    onSeek={seekTo}
+                  />
+                ) : (
+                  <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3 px-6 text-center text-sm">
+                    <BookOpen className="size-8 opacity-40" />
+                    <p>No ebook loaded for this book yet.</p>
+                    <Button asChild size="sm" variant="secondary">
+                      <Link href={`/book/${book.id}`}>Upload an EPUB</Link>
+                    </Button>
+                  </div>
+                )}
+              </div>
             </TabsContent>
 
             <TabsContent value="bookmarks" className="min-h-0 flex-1 overflow-y-auto p-2">
@@ -610,13 +612,13 @@ function ChapterList({
             onClick={() => onSeek(c.startSec)}
             className={cn(
               "flex w-full items-center gap-3 rounded-md px-3 py-2 text-left transition-colors",
-              active ? "bg-primary/15" : "hover:bg-accent/50",
+              active ? "bg-position/15" : "hover:bg-accent/50",
             )}
           >
             <span
               className={cn(
                 "w-5 shrink-0 text-center text-xs tabular-nums",
-                active ? "text-primary" : "text-subtle-foreground",
+                active ? "text-position" : "text-subtle-foreground",
               )}
             >
               {i + 1}
@@ -671,7 +673,7 @@ function BookmarkList({
         >
           <div className="flex items-center gap-2">
             <button
-              className="text-primary font-mono text-xs tabular-nums"
+              className="text-position font-mono text-xs tabular-nums"
               onClick={() => {
                 if (b.partId !== currentPartId) onJumpPart(b.partId);
                 else onSeek(b.timeSec);
@@ -685,12 +687,24 @@ function BookmarkList({
               </Badge>
             )}
             {b.label && <span className="text-subtle-foreground text-xs">{b.label}</span>}
-            <button
-              onClick={() => onDelete(b.id)}
-              className="text-muted-foreground hover:text-destructive ml-auto text-xs opacity-0 transition-opacity group-hover:opacity-100"
-            >
-              Remove
-            </button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground ml-auto"
+                  aria-label="Bookmark actions"
+                >
+                  <MoreHorizontal className="size-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem variant="destructive" onClick={() => onDelete(b.id)}>
+                  <Trash2 className="size-4" />
+                  Remove bookmark
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
 
           {b.quote && (
@@ -738,9 +752,9 @@ function BookmarkNote({
     ) : (
       <button
         onClick={() => setEditing(true)}
-        className="text-subtle-foreground hover:text-foreground mt-1 block text-left text-xs opacity-0 transition-opacity group-hover:opacity-100"
+        className="text-subtle-foreground hover:text-foreground mt-1 block text-left text-xs italic transition-colors"
       >
-        Add a note…
+        Why does this moment matter?
       </button>
     );
   }
@@ -764,5 +778,83 @@ function BookmarkNote({
       placeholder="Why does this moment matter?"
       className="bg-background focus:ring-ring mt-1 w-full rounded border px-2 py-1 text-xs focus:ring-1 focus:outline-none"
     />
+  );
+}
+
+/**
+ * The progress bar, cut into one segment per chapter with a hairline gap between them.
+ * The segment under the cursor names itself; the one you are in is the only brass.
+ */
+function ChapterTrack({
+  chapters,
+  duration,
+  currentTime,
+  activeId,
+  onSeek,
+}: {
+  chapters: Chapter[];
+  duration: number;
+  currentTime: number;
+  activeId: string | null;
+  onSeek: (s: number) => void;
+}) {
+  const [hovered, setHovered] = useState<string | null>(null);
+
+  // Without chapters there is nothing to segment, so fall back to a single bar.
+  const segments =
+    duration > 0 && chapters.length > 0
+      ? chapters.map((c, i) => {
+          const start = c.startSec;
+          const end = chapters[i + 1]?.startSec ?? duration;
+          return { ...c, start, end, width: ((end - start) / duration) * 100 };
+        })
+      : [{ id: "whole", title: "", start: 0, end: duration, width: 100 } as const];
+
+  const hoveredChapter = segments.find((s) => s.id === hovered);
+
+  return (
+    <div>
+      <div className="group flex h-6 w-full items-center gap-[2px]">
+        {segments.map((seg) => {
+          const filled =
+            currentTime <= seg.start
+              ? 0
+              : currentTime >= seg.end
+                ? 100
+                : ((currentTime - seg.start) / (seg.end - seg.start)) * 100;
+          const isActive = seg.id === activeId;
+
+          return (
+            <button
+              key={seg.id}
+              onMouseEnter={() => setHovered(seg.id)}
+              onMouseLeave={() => setHovered(null)}
+              onClick={(e) => {
+                const r = e.currentTarget.getBoundingClientRect();
+                const within = (e.clientX - r.left) / r.width;
+                onSeek(seg.start + within * (seg.end - seg.start));
+              }}
+              style={{ width: `${seg.width}%` }}
+              className="relative h-1.5 min-w-[3px] overflow-hidden rounded-[2px] transition-all group-hover:h-2.5"
+              aria-label={seg.title || "Seek"}
+            >
+              <span className="bg-secondary absolute inset-0" />
+              <span
+                className={cn(
+                  "absolute inset-y-0 left-0 transition-[width]",
+                  isActive ? "bg-position" : "bg-muted-foreground/70",
+                )}
+                style={{ width: `${filled}%` }}
+              />
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Reserve the row so naming a chapter on hover doesn't shift the transport. */}
+      <p className="text-muted-foreground mt-1 h-4 truncate text-xs">
+        {hoveredChapter?.title ?? ""}
+      </p>
+    </div>
   );
 }

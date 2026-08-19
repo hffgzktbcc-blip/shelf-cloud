@@ -114,7 +114,7 @@ function AppPreview() {
           <p className="mt-3 text-sm font-medium">The Hobbit</p>
           <p className="text-muted-foreground text-xs">J.R.R. Tolkien · Chapter 3</p>
           <div className="bg-secondary mt-4 h-1 w-full max-w-[190px] overflow-hidden rounded-full">
-            <div className="bg-primary h-full w-[31%] rounded-full" />
+            <div className="bg-position h-full w-[31%] rounded-full" />
           </div>
           <div className="text-muted-foreground mt-1.5 flex w-full max-w-[190px] justify-between text-[9px] tabular-nums">
             <span>00:31:30</span>

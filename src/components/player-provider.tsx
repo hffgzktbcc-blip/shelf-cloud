@@ -383,7 +383,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               </p>
               <div className="bg-secondary mt-1.5 h-1 w-full overflow-hidden rounded-full">
                 <div
-                  className="bg-primary h-full rounded-full transition-[width] duration-500"
+                  className="bg-position h-full rounded-full transition-[width] duration-500"
                   style={{ width: `${pct}%` }}
                 />
               </div>

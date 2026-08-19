@@ -69,7 +69,7 @@ export function StatsClient({ data }: { data: StatsData }) {
                     <p className="truncate text-sm font-medium">{b.title}</p>
                     <div className="mt-1.5 flex items-center gap-3">
                       <div className="bg-secondary h-1.5 flex-1 overflow-hidden rounded-full">
-                        <div className="bg-primary h-full rounded-full" style={{ width: `${pct}%` }} />
+                        <div className="bg-position h-full rounded-full" style={{ width: `${pct}%` }} />
                       </div>
                       <span className="text-subtle-foreground w-24 shrink-0 text-right text-xs tabular-nums">
                         {hours(b.listenedSec)} / {hours(b.totalSec)}

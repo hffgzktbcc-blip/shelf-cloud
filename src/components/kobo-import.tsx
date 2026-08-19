@@ -165,7 +165,7 @@ export function KoboImport({ bookId, onImported }: { bookId: string; onImported:
                       <span
                         className={
                           s.located
-                            ? "text-primary font-mono tabular-nums"
+                            ? "text-position font-mono tabular-nums"
                             : "text-subtle-foreground"
                         }
                       >

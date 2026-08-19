@@ -223,7 +223,7 @@ function Hero({ book, playing }: { book: LibraryBook; playing: boolean }) {
 
           <div className="mt-6 max-w-md">
             <div className="bg-secondary h-1.5 w-full overflow-hidden rounded-full">
-              <div className="bg-primary h-full rounded-full" style={{ width: `${pct}%` }} />
+              <div className="bg-position h-full rounded-full" style={{ width: `${pct}%` }} />
             </div>
             <p className="text-muted-foreground mt-2 text-xs tabular-nums">
               {Math.round(pct)}% through
@@ -314,7 +314,7 @@ function BookCard({ book, playing }: { book: LibraryBook; playing: boolean }) {
 
         {pct > 0.5 && (
           <div className="absolute inset-x-0 bottom-0 h-[3px] bg-black/40">
-            <div className="bg-primary h-full" style={{ width: `${pct}%` }} />
+            <div className="bg-position h-full" style={{ width: `${pct}%` }} />
           </div>
         )}
       </div>

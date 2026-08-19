@@ -279,7 +279,7 @@ export function TranscriptPanel({ videoId, currentTime, onSeek }: Props) {
                       className={cn(
                         "cursor-pointer rounded-sm transition-colors",
                         active
-                          ? "bg-primary/20 text-foreground"
+                          ? "bg-position/25 text-foreground"
                           : "text-muted-foreground hover:text-foreground",
                       )}
                     >
@@ -313,13 +313,13 @@ const CueRow = memo(function CueRow({
       onClick={() => onSeek(cue.start)}
       className={cn(
         "flex w-full gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors",
-        active ? "bg-primary/15 text-foreground" : "hover:bg-accent/50 text-muted-foreground",
+        active ? "bg-position/15 text-foreground" : "hover:bg-accent/50 text-muted-foreground",
       )}
     >
       <span
         className={cn(
           "shrink-0 font-mono text-xs tabular-nums",
-          active ? "text-primary" : "text-muted-foreground",
+          active ? "text-position" : "text-muted-foreground",
         )}
       >
         {formatTime(cue.start)}

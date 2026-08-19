@@ -453,7 +453,7 @@ export function BookClient({ book, links }: Props) {
                     href={`/book/${book.id}/play/${b.partId}`}
                     className="hover:bg-accent/50 block rounded-md px-2 py-2"
                   >
-                    <span className="text-primary font-mono text-xs tabular-nums">
+                    <span className="text-position font-mono text-xs tabular-nums">
                       {formatTime(b.timeSec)}
                     </span>
                     {b.quote ? (

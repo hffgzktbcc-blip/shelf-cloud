@@ -136,7 +136,7 @@ export function KindleImport({
                 <li key={i} className="flex items-start gap-2 text-xs">
                   <span
                     className={
-                      s.located ? "text-primary font-mono tabular-nums" : "text-subtle-foreground"
+                      s.located ? "text-position font-mono tabular-nums" : "text-subtle-foreground"
                     }
                   >
                     {s.located && s.timeSec !== null ? formatTime(s.timeSec) : "—"}

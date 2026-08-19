@@ -407,7 +407,7 @@ export function EbookReader({ ebook, partId, videoId, currentTime, onSeek }: Pro
                 onClick={() => onBlockClick(b.index)}
                 className={cn(
                   "mt-10 mb-4 cursor-pointer scroll-mt-8 rounded-md px-2 py-1 font-semibold tracking-tight transition-colors",
-                  isActive ? "bg-primary/20" : "hover:bg-black/5 dark:hover:bg-white/5",
+                  isActive ? "bg-position/25" : "hover:bg-black/5 dark:hover:bg-white/5",
                   THEMES[theme].heading,
                 )}
                 style={{ fontSize: `${fontSize + 4}px` }}
@@ -422,7 +422,7 @@ export function EbookReader({ ebook, partId, videoId, currentTime, onSeek }: Pro
                 className={cn(
                   "-mx-2 cursor-pointer rounded-md px-2 py-1 transition-colors",
                   isActive
-                    ? "bg-primary/20"
+                    ? "bg-position/25"
                     : cn(THEMES[theme].body, "hover:bg-black/5 dark:hover:bg-white/5"),
                 )}
                 style={{ fontSize: `${fontSize}px`, lineHeight: 1.8 }}

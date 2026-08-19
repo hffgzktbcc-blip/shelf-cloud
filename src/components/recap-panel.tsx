@@ -15,10 +15,17 @@ export function RecapPanel({
   partId,
   currentTime,
   onSeek,
+  compact = false,
 }: {
   partId: string;
   currentTime: number;
   onSeek: (s: number) => void;
+  /**
+   * Sits above the chapter list rather than owning a tab of its own — a recap is a
+   * question about right now, so it belongs beside the position it summarises. Collapses
+   * to a single line until asked, and never fills the pane.
+   */
+  compact?: boolean;
 }) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [question, setQuestion] = useState("");
@@ -59,6 +66,47 @@ export function RecapPanel({
     } finally {
       setBusy(false);
     }
+  }
+
+  if (compact) {
+    const latest = entries[0];
+    return (
+      <div className="mb-3 rounded-lg border p-3">
+        <div className="flex items-center justify-between gap-2">
+          <p className="text-subtle-foreground text-xs font-medium tracking-[0.14em] uppercase">
+            What just happened
+          </p>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-7 px-2 text-xs"
+            disabled={busy || !ollama?.available}
+            onClick={() => ask(PRESETS[0].question)}
+          >
+            {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
+            {latest ? "Again" : "Catch me up"}
+          </Button>
+        </div>
+
+        {latest ? (
+          <div className="mt-2">
+            <button
+              onClick={() => onSeek(latest.timeSec)}
+              className="text-position font-mono text-xs tabular-nums hover:underline"
+            >
+              {formatTime(latest.timeSec)}
+            </button>
+            <p className="text-muted-foreground mt-1 text-sm leading-relaxed">{latest.answer}</p>
+          </div>
+        ) : (
+          <p className="text-subtle-foreground mt-1.5 text-xs leading-relaxed">
+            {ollama?.available
+              ? "A summary of the last few minutes, never using narration from ahead of you."
+              : "Needs a local model running. Start Ollama to use this."}
+          </p>
+        )}
+      </div>
+    );
   }
 
   return (
@@ -138,7 +186,7 @@ export function RecapPanel({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => onSeek(e.timeSec)}
-                    className="text-primary font-mono text-xs tabular-nums hover:underline"
+                    className="text-position font-mono text-xs tabular-nums hover:underline"
                   >
                     {formatTime(e.timeSec)}
                   </button>

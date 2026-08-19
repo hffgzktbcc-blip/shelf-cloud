@@ -31,6 +31,7 @@
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
   --color-subtle-foreground: var(--subtle-foreground);
+  --color-position: var(--position);
   --color-muted: var(--muted);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-secondary: var(--secondary);
@@ -56,8 +57,11 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.62 0.12 66);
-  --primary-foreground: oklch(0.99 0.01 75);
+  --primary: oklch(0.205 0 0);
+  --primary-foreground: oklch(0.985 0 0);
+  /* Brass marks where you are — progress, the active chapter, the current timestamp —
+     and nothing else. As --primary it was also every button, so it stopped pointing. */
+  --position: oklch(0.62 0.12 66);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
@@ -93,10 +97,11 @@
   --card-foreground: oklch(0.985 0 0);
   --popover: oklch(0.205 0 0);
   --popover-foreground: oklch(0.985 0 0);
-  /* A warm brass, not a neutral. The app was entirely greyscale, which read as flat no
-     matter how the layout was arranged. Dark foreground keeps text on it legible. */
-  --primary: oklch(0.80 0.115 75);
-  --primary-foreground: oklch(0.22 0.03 75);
+  --primary: oklch(0.922 0 0);
+  --primary-foreground: oklch(0.205 0 0);
+  /* Brass marks where you are — progress, the active chapter, the current timestamp —
+     and nothing else. As --primary it was also every button, so it stopped pointing. */
+  --position: oklch(0.80 0.115 75);
   --secondary: oklch(0.269 0 0);
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
