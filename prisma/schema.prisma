@@ -144,7 +144,9 @@ model Setting {
 model ListeningDay {
   /// Local calendar date, YYYY-MM-DD.
   date    String @id
-  seconds Int    @default(0)
+  /// Float, not Int: rounding each credited delta to a whole second discarded all of
+  /// them back when saves fired several times a second.
+  seconds Float  @default(0)
 }
 
 /// Books parked to listen to next. Stumbling on something while listening to something
@@ -191,8 +193,9 @@ model ListeningSession {
   startedAt DateTime @default(now())
   /// Bumped on every credited save, so an abandoned session still has a sane end.
   endedAt   DateTime @default(now())
-  /// Audio actually heard, which at 2x is half the wall-clock time.
-  seconds   Int      @default(0)
+  /// Audio actually heard. At 2x that is twice the wall-clock time, which is the point —
+  /// the figure describes the book, not the clock.
+  seconds   Float    @default(0)
   /// Rate weighted by the seconds it applied to, so the average reflects real listening.
   rateSum   Float    @default(0)
 

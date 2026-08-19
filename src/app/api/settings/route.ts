@@ -8,6 +8,8 @@ export const dynamic = "force-dynamic";
 const ALLOWED = [
   "youtubeApiKey",
   "googleBooksApiKey",
+  "koboSyncToken",
+  "playbackPrefs",
   "playbackRate",
   "sleepTimerMin",
   "theme",
@@ -17,13 +19,16 @@ const ALLOWED = [
 export async function GET() {
   const rows = await prisma.setting.findMany();
   const settings: Record<string, string> = {};
-  const secret = new Set(["youtubeApiKey"]);
+  // Every credential is masked, not just the first one that happened to be added —
+  // this endpoint was returning the Anthropic key in full to any caller.
+  const secret = new Set(["youtubeApiKey", "anthropicApiKey", "googleBooksApiKey", "koboSyncToken"]);
   for (const row of rows) {
     settings[row.key] = secret.has(row.key) ? maskKey(row.value) : row.value;
   }
   return NextResponse.json({
     settings,
     hasApiKey: rows.some((r) => r.key === "youtubeApiKey" && r.value),
+    hasGoogleKey: rows.some((r) => r.key === "googleBooksApiKey" && r.value),
   });
 }
 

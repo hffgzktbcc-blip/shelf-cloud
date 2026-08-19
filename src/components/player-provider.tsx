@@ -15,6 +15,7 @@ import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/format";
 import { Cover } from "@/components/cover";
 import { parseAudiobookTitle } from "@/lib/title";
+import { DEFAULT_PREFS, parsePrefs, type Prefs } from "@/lib/prefs";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -87,6 +88,8 @@ type Ctx = {
   /** Chapter line for the docked bar; the provider can't know it on its own. */
   nowPlayingLabel: string | null;
   setNowPlayingLabel: (s: string | null) => void;
+  /** Playback preferences, loaded once and shared by the page and the docked bar. */
+  prefs: Prefs;
 };
 
 const PlayerContext = createContext<Ctx | null>(null);
@@ -115,8 +118,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [docked, setDocked] = useState(true);
   const [videoHidden, setVideoHidden] = useState(false);
   const [nowPlayingLabel, setNowPlayingLabel] = useState<string | null>(null);
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS);
   const [rate, setRateState] = useState(1);
   const [sleepAt, setSleepAt] = useState<number | null>(null);
+  const fadeRef = useRef<number | null>(null);
   const [state, setState] = useState<PlayerState>({
     ready: false,
     playing: false,
@@ -174,6 +179,21 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     [reposition],
   );
 
+  // Preferences are read once; they change rarely and only from the settings screen.
+  useEffect(() => {
+    fetch("/api/settings")
+      .then((r) => r.json())
+      .then((d) => {
+        const loaded = parsePrefs(d.settings?.playbackPrefs);
+        setPrefs(loaded);
+        // Apply the starting speed once, when preferences arrive. Re-applying it on every
+        // track change would undo a speed you set mid-book, which the setting explicitly
+        // promises not to do.
+        setRateState(loaded.defaultSpeed);
+      })
+      .catch(() => {});
+  }, []);
+
   // Poll position; the API has no continuous time event.
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -191,23 +211,36 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     return () => window.clearInterval(id);
   }, []);
 
-  // Persist position even while the listener is off browsing another page.
+  // Read at fire time so the save timer never needs re-creating. Written in an effect,
+  // not during render — a ref mutated while rendering breaks under concurrent rendering.
+  const liveRef = useRef({ currentTime: 0, duration: 0, rate: 1 });
   useEffect(() => {
+    liveRef.current = { currentTime: state.currentTime, duration: state.duration, rate };
+  });
+
+  // Persist position even while the listener is off browsing another page.
+  //
+  // Deliberately depends only on `playing`: including currentTime restarted the timer
+  // before it could elapse, and the values are read from refs at fire time instead.
+  useEffect(() => {
+    if (!state.playing) return;
     const id = window.setInterval(() => {
       const t = trackRef.current;
-      if (!t || !state.playing) return;
+      if (!t) return;
       fetch(`/api/parts/${t.partId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          positionSec: state.currentTime,
-          rate,
-          ...(state.duration ? { duration: Math.round(state.duration) } : {}),
+          positionSec: liveRef.current.currentTime,
+          rate: liveRef.current.rate,
+          ...(liveRef.current.duration
+            ? { duration: Math.round(liveRef.current.duration) }
+            : {}),
         }),
       }).catch(() => {});
     }, 5000);
     return () => window.clearInterval(id);
-  }, [state.playing, state.currentTime, state.duration]);
+  }, [state.playing]);
 
   const load = useCallback((t: Track) => {
     trackRef.current = t;
@@ -318,13 +351,28 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (sleepAt === null) return;
     const id = window.setInterval(() => {
-      if (Date.now() >= sleepAt) {
-        playerRef.current?.pauseVideo?.();
+        if (Date.now() >= sleepAt) {
+          if (fadeRef.current !== null) window.clearInterval(fadeRef.current);
+          if (prefs.fadeOnSleep && playerRef.current?.getVolume && playerRef.current?.setVolume) {
+            const startVolume = playerRef.current.getVolume();
+            let volume = startVolume;
+            fadeRef.current = window.setInterval(() => {
+              volume = Math.max(0, volume - Math.max(1, startVolume / 5));
+              playerRef.current?.setVolume?.(volume);
+              if (volume === 0) {
+                if (fadeRef.current !== null) window.clearInterval(fadeRef.current);
+                fadeRef.current = null;
+                playerRef.current?.pauseVideo?.();
+              }
+            }, 1000);
+          } else {
+            playerRef.current?.pauseVideo?.();
+          }
         setSleepAt(null);
       }
     }, 1000);
     return () => window.clearInterval(id);
-  }, [sleepAt]);
+  }, [prefs.fadeOnSleep, sleepAt]);
 
   const pct = state.duration > 0 ? (state.currentTime / state.duration) * 100 : 0;
 
@@ -350,6 +398,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setVideoHidden,
         nowPlayingLabel,
         setNowPlayingLabel,
+        prefs,
       }}
     >
       {children}
@@ -411,9 +460,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
             <div className="flex shrink-0 items-center gap-1">
               <button
-                onClick={() => nudge(-15)}
+                onClick={() => nudge(-prefs.skipBack)}
                 className="text-muted-foreground hover:text-foreground hover:bg-accent grid size-9 place-items-center rounded-md transition-colors"
-                aria-label="Back 15 seconds"
+                aria-label={`Back ${prefs.skipBack} seconds`}
               >
                 <RotateCcw className="size-4" />
               </button>
@@ -425,9 +474,9 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
                 {state.playing ? <Pause className="size-4" /> : <Play className="size-4" />}
               </button>
               <button
-                onClick={() => nudge(30)}
+                onClick={() => nudge(prefs.skipForward)}
                 className="text-muted-foreground hover:text-foreground hover:bg-accent grid size-9 place-items-center rounded-md transition-colors"
-                aria-label="Forward 30 seconds"
+                aria-label={`Forward ${prefs.skipForward} seconds`}
               >
                 <RotateCw className="size-4" />
               </button>

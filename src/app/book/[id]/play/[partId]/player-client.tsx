@@ -113,6 +113,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
     setAnchor,
     setVideoHidden,
     setNowPlayingLabel,
+    prefs,
   } = usePlayer();
 
   // The iframe lives above this page in the provider, so it has to be told to hide.
@@ -138,9 +139,22 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
       bookTitle: book.title,
       partTitle: part.title,
       coverUrl: book.coverUrl,
-      startAt,
+      // Step back a little when picking a part up again — it re-finds the thread. Only
+      // once you're genuinely into it, never at the very start.
+      startAt:
+        startAt > 60 ? Math.max(0, startAt - prefs.rewindOnResume) : startAt,
     });
-  }, [load, book.id, book.title, book.coverUrl, part.id, part.videoId, part.title, startAt]);
+  }, [
+    load,
+    book.id,
+    book.title,
+    book.coverUrl,
+    part.id,
+    part.videoId,
+    part.title,
+    startAt,
+    prefs.rewindOnResume,
+  ]);
 
   const duration = state.duration || part.duration;
 
@@ -176,33 +190,43 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
   );
 
   useEffect(() => {
-    if (!state.ready) return;
+    if (!state.ready || !state.playing) return;
     const id = window.setInterval(() => {
-      if (state.playing) saveProgress(state.currentTime);
+      latest.current.save(latest.current.time);
     }, 5000);
     return () => window.clearInterval(id);
-  }, [state.ready, state.playing, state.currentTime, saveProgress]);
+  }, [state.ready, state.playing]);
+
+  // Save on the way out, and only on the way out. This previously depended on
+  // state.currentTime, so it tore down and re-ran four times a second — and its cleanup
+  // saves, which meant a network write per poll tick and sub-second deltas that the
+  // crediting logic rounded to zero. The position is read from a ref so the effect can
+  // hold still.
+  const latest = useRef({ time: 0, save: saveProgress });
+  useEffect(() => {
+    latest.current = { time: state.currentTime, save: saveProgress };
+  });
 
   useEffect(() => {
-    const onLeave = () => saveProgress(state.currentTime);
+    const onLeave = () => latest.current.save(latest.current.time);
     window.addEventListener("pagehide", onLeave);
     return () => {
       window.removeEventListener("pagehide", onLeave);
       onLeave();
     };
-  }, [saveProgress, state.currentTime]);
+  }, []);
 
   useEffect(() => {
     if (!state.ended) return;
     saveProgress(duration, true);
-    if (nextPart) {
+    if (nextPart && prefs.autoPlayNext) {
       toast.success("Starting the next part…");
       goToPart(nextPart.id);
-    } else {
+    } else if (!nextPart) {
       toast.success("You finished this book.");
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [state.ended]);
+  }, [state.ended, prefs.autoPlayNext]);
 
   function goToPart(id: string) {
     saveProgress(state.currentTime);
@@ -240,10 +264,10 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
         toggle();
       } else if (e.code === "ArrowLeft") {
         e.preventDefault();
-        nudge(-15);
+        nudge(-prefs.skipBack);
       } else if (e.code === "ArrowRight") {
         e.preventDefault();
-        nudge(30);
+        nudge(prefs.skipForward);
       } else if (e.key.toLowerCase() === "b") {
         addBookmark();
       }
@@ -384,13 +408,13 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
             >
               <ChevronLeft className="size-5" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => nudge(-15)}>
+            <Button variant="ghost" size="icon" onClick={() => nudge(-prefs.skipBack)} aria-label={`Back ${prefs.skipBack} seconds`}>
               <RotateCcw className="size-6" />
             </Button>
             <Button size="icon" className="size-16 rounded-full" onClick={toggle}>
               {state.playing ? <Pause className="size-7" /> : <Play className="size-7" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={() => nudge(30)}>
+            <Button variant="ghost" size="icon" onClick={() => nudge(prefs.skipForward)} aria-label={`Forward ${prefs.skipForward} seconds`}>
               <RotateCw className="size-6" />
             </Button>
             <Button
@@ -429,7 +453,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="center">
-                {[10, 15, 30, 45, 60].map((m) => (
+                  {[prefs.sleepDefaultMin, ...[10, 15, 30, 45, 60].filter((m) => m !== prefs.sleepDefaultMin)].map((m) => (
                   <DropdownMenuItem key={m} onClick={() => setSleepTimer(m)}>
                     {m} minutes
                   </DropdownMenuItem>

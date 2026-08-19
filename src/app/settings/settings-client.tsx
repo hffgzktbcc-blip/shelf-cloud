@@ -11,6 +11,8 @@ import {
   FileText,
   KeyRound,
   Loader2,
+  Radio,
+  SlidersHorizontal,
   Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -18,15 +20,19 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { DEFAULT_PREFS, type Prefs } from "@/lib/prefs";
+import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 
 type Props = {
   hasApiKey: boolean;
   hasGoogleKey: boolean;
+  koboSyncConfigured: boolean;
+  prefs: Prefs;
   stats: { books: number; parts: number; bookmarks: number; ebooks: number };
 };
 
-export function SettingsClient({ hasApiKey, hasGoogleKey, stats }: Props) {
+export function SettingsClient({ hasApiKey, hasGoogleKey, koboSyncConfigured, prefs: initialPrefs, stats }: Props) {
   const router = useRouter();
   const [key, setKey] = useState("");
   const [googleKey, setGoogleKey] = useState("");
@@ -60,6 +66,10 @@ export function SettingsClient({ hasApiKey, hasGoogleKey, stats }: Props) {
       <p className="text-muted-foreground mt-1 text-sm">
         Everything is stored locally on this machine.
       </p>
+
+      <PlaybackCard initial={initialPrefs} />
+
+      <KoboSyncCard configured={koboSyncConfigured} />
 
       <Card className="mt-6">
         <CardHeader>
@@ -233,5 +243,234 @@ export function SettingsClient({ hasApiKey, hasGoogleKey, stats }: Props) {
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function KoboSyncCard({ configured }: { configured: boolean }) {
+  const [token, setToken] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function createToken() {
+    setSaving(true);
+    const next = crypto.randomUUID().replaceAll("-", "");
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "koboSyncToken", value: next }),
+      });
+      if (!res.ok) throw new Error("Could not create sync token");
+      setToken(next);
+      toast.success("Kobo sync token created");
+    } catch (e) {
+      toast.error((e as Error).message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <Radio className="size-4" />
+          Kobo wireless sync
+          {configured && <Badge variant="secondary">Configured</Badge>}
+        </CardTitle>
+        <CardDescription>
+          A small Kobo-side client can send reading positions here over Wi-Fi. This does not use KOReader or modify the Kobo reader.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="bg-muted rounded-md px-3 py-2 font-mono text-xs break-all">
+          /api/kobo/sync
+        </div>
+        {token && (
+          <div className="space-y-1">
+            <Label htmlFor="kobo-token">Copy this token into the Kobo client</Label>
+            <Input id="kobo-token" readOnly value={token} />
+          </div>
+        )}
+        <Button variant="secondary" size="sm" onClick={createToken} disabled={saving}>
+          {saving && <Loader2 className="size-4 animate-spin" />}
+          {configured ? "Rotate sync token" : "Create sync token"}
+        </Button>
+        <p className="text-subtle-foreground text-xs leading-relaxed">
+          The token is shown only when created. Rotating it disconnects any client using the old token.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Playback behaviour. Everything here is something the embedded player can actually do;
+ * silence trimming and volume boost are named in the note rather than offered, because a
+ * cross-origin embed never hands over the audio to process.
+ */
+function PlaybackCard({ initial }: { initial: Prefs }) {
+  const [prefs, setPrefs] = useState<Prefs>(initial);
+  const [saving, setSaving] = useState(false);
+
+  async function update<K extends keyof Prefs>(key: K, value: Prefs[K]) {
+    const next = { ...prefs, [key]: value };
+    setPrefs(next);
+    setSaving(true);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key: "playbackPrefs", value: JSON.stringify(next) }),
+      });
+      if (!res.ok) throw new Error("Could not save");
+    } catch {
+      setPrefs(prefs);
+      toast.error("Could not save that");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="mt-6">
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2 text-base">
+          <SlidersHorizontal className="size-4" />
+          Playback
+          {saving && <Loader2 className="text-muted-foreground size-3.5 animate-spin" />}
+        </CardTitle>
+        <CardDescription>
+          Applies everywhere — the transport, the docked bar and the keyboard shortcuts.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="space-y-5">
+        <Choice
+          label="Skip back"
+          hint="The left arrow on the transport, and ←"
+          value={prefs.skipBack}
+          options={[10, 15, 30, 60]}
+          format={(v) => `${v}s`}
+          onPick={(v) => update("skipBack", v)}
+        />
+        <Choice
+          label="Skip forward"
+          hint="The right arrow, and →"
+          value={prefs.skipForward}
+          options={[10, 15, 30, 60]}
+          format={(v) => `${v}s`}
+          onPick={(v) => update("skipForward", v)}
+        />
+        <Choice
+          label="Speed for new books"
+          hint="A book keeps its own speed once you change it"
+          value={prefs.defaultSpeed}
+          options={[1, 1.1, 1.25, 1.5, 1.75, 2]}
+          format={(v) => `${v}×`}
+          onPick={(v) => update("defaultSpeed", v)}
+        />
+        <Choice
+          label="Rewind on resume"
+          hint="Steps back a little when you pick a book up again"
+          value={prefs.rewindOnResume}
+          options={[0, 5, 10, 15, 30]}
+          format={(v) => (v === 0 ? "Off" : `${v}s`)}
+          onPick={(v) => update("rewindOnResume", v)}
+        />
+        <Choice
+          label="Sleep timer default"
+          hint="What the Sleep button offers first"
+          value={prefs.sleepDefaultMin}
+          options={[10, 15, 30, 45, 60]}
+          format={(v) => `${v}m`}
+          onPick={(v) => update("sleepDefaultMin", v)}
+        />
+
+        <Toggle
+          label="Fade out on sleep"
+          hint="Ramps the volume down over the last few seconds instead of cutting"
+          checked={prefs.fadeOnSleep}
+          onChange={(v) => update("fadeOnSleep", v)}
+        />
+        <Toggle
+          label="Auto-play the next part"
+          hint="Rolls straight on when a part ends"
+          checked={prefs.autoPlayNext}
+          onChange={(v) => update("autoPlayNext", v)}
+        />
+
+        <p className="text-subtle-foreground border-t pt-4 text-xs leading-relaxed">
+          Silence trimming and volume boost aren&apos;t offered because they need the raw
+          audio, and an embedded YouTube player never hands it over — the same limit that
+          stops playback continuing when your phone locks.
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function Choice<T extends number>({
+  label,
+  hint,
+  value,
+  options,
+  format,
+  onPick,
+}: {
+  label: string;
+  hint: string;
+  value: T;
+  options: T[];
+  format: (v: T) => string;
+  onPick: (v: T) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-subtle-foreground text-xs">{hint}</p>
+      </div>
+      <div className="bg-secondary flex shrink-0 rounded-md p-0.5">
+        {options.map((o) => (
+          <button
+            key={o}
+            onClick={() => onPick(o)}
+            className={cn(
+              "rounded-md px-2.5 py-1 text-xs tabular-nums transition-colors",
+              o === value ? "bg-background text-foreground" : "text-muted-foreground",
+            )}
+          >
+            {format(o)}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Toggle({
+  label,
+  hint,
+  checked,
+  onChange,
+}: {
+  label: string;
+  hint: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
+  return (
+    <label className="flex cursor-pointer items-center justify-between gap-3">
+      <span className="min-w-0">
+        <span className="block text-sm font-medium">{label}</span>
+        <span className="text-subtle-foreground block text-xs">{hint}</span>
+      </span>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="accent-position size-4 shrink-0"
+      />
+    </label>
   );
 }
