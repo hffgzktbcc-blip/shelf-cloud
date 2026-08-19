@@ -174,7 +174,7 @@ function NothingStarted() {
       <Library className="text-muted-foreground/40 size-10" />
       <h2 className="mt-4 text-lg font-medium">Nothing on the go</h2>
       <p className="text-muted-foreground mt-1.5 max-w-sm text-sm leading-relaxed">
-        Start something from your shelf and it'll wait for you here.
+        Start something from your shelf and it&apos;ll wait for you here.
       </p>
       <Button asChild className="mt-6">
         <Link href="/library">Open your library</Link>

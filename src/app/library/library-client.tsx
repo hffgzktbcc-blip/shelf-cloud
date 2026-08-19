@@ -2,13 +2,33 @@
 
 import { useMemo, useState } from "react";
 import Link from "next/link";
-import { AudioLines, BookPlus, Bookmark, FileText, Headphones, Play, Quote, Search, X } from "lucide-react";
+import { useRouter } from "next/navigation";
+import {
+  AudioLines,
+  BookPlus,
+  Bookmark,
+  FileText,
+  LayoutGrid,
+  ListTree,
+  Plus,
+  Rows3,
+  Search,
+  Waypoints,
+  X,
+} from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { formatDuration, formatTime } from "@/lib/format";
-import { usePlayer } from "@/components/player-provider";
 import { Cover } from "@/components/cover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { formatDuration } from "@/lib/format";
+import { usePlayer } from "@/components/player-provider";
 
 export type LibraryBook = {
   id: string;
@@ -17,333 +37,336 @@ export type LibraryBook = {
   series: string | null;
   coverUrl: string | null;
   partCount: number;
+  chapterCount: number;
   ebookCount: number;
+  alignedMarks: number;
   bookmarkCount: number;
   totalDuration: number;
   listened: number;
   resumePartId: string | null;
+  addedAt: string;
+  shelfIds: string[];
+  queued: boolean;
 };
 
-export type Passage = {
-  quote: string;
-  timeSec: number;
-  bookId: string;
-  partId: string;
-  bookTitle: string;
-  bookAuthor: string | null;
-  coverUrl: string | null;
-};
+type Shelf = { id: string; name: string; count: number };
 
-export function LibraryClient({
-  books,
-  passage,
-}: {
-  books: LibraryBook[];
-  passage?: Passage | null;
-}) {
+const SORTS = {
+  recent: { label: "Last listened", fn: (a: LibraryBook, b: LibraryBook) => 0 },
+  title: { label: "Title", fn: (a: LibraryBook, b: LibraryBook) => a.title.localeCompare(b.title) },
+  author: {
+    label: "Author",
+    fn: (a: LibraryBook, b: LibraryBook) => (a.author ?? "").localeCompare(b.author ?? ""),
+  },
+  progress: {
+    label: "Progress",
+    fn: (a: LibraryBook, b: LibraryBook) => pct(b) - pct(a),
+  },
+  longest: {
+    label: "Longest",
+    fn: (a: LibraryBook, b: LibraryBook) => b.totalDuration - a.totalDuration,
+  },
+} as const;
+
+type SortKey = keyof typeof SORTS;
+
+function pct(b: LibraryBook) {
+  return b.totalDuration > 0 ? (b.listened / b.totalDuration) * 100 : 0;
+}
+
+/** Filters phrased as questions you'd actually ask of a shelf. */
+const FILTERS = {
+  unfinished: { label: "Unfinished", test: (b: LibraryBook) => pct(b) > 0.5 && pct(b) < 99 },
+  untouched: { label: "Not started", test: (b: LibraryBook) => pct(b) <= 0.5 },
+  noEbook: { label: "No ebook", test: (b: LibraryBook) => b.ebookCount === 0 },
+  notAligned: {
+    label: "Never aligned",
+    test: (b: LibraryBook) => b.ebookCount > 0 && b.alignedMarks < 2,
+  },
+  noChapters: { label: "No chapters", test: (b: LibraryBook) => b.chapterCount === 0 },
+} as const;
+
+type FilterKey = keyof typeof FILTERS;
+
+export function LibraryClient({ books, shelves }: { books: LibraryBook[]; shelves: Shelf[] }) {
   const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<SortKey>("recent");
+  const [active, setActive] = useState<FilterKey | null>(null);
+  const [shelf, setShelf] = useState<string | null>(null);
+  const [view, setView] = useState<"grid" | "list">("list");
   const { track } = usePlayer();
+  const router = useRouter();
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return books;
-    return books.filter(
-      (b) =>
-        b.title.toLowerCase().includes(q) ||
-        (b.author ?? "").toLowerCase().includes(q) ||
-        (b.series ?? "").toLowerCase().includes(q),
-    );
-  }, [books, query]);
-
-  const inProgress = filtered.filter((b) => {
-    const pct = b.totalDuration > 0 ? (b.listened / b.totalDuration) * 100 : 0;
-    return pct > 0.5 && pct < 99;
-  });
-  const rest = filtered.filter((b) => !inProgress.includes(b));
+    let out = books;
+    if (q) {
+      out = out.filter(
+        (b) =>
+          b.title.toLowerCase().includes(q) ||
+          (b.author ?? "").toLowerCase().includes(q) ||
+          (b.series ?? "").toLowerCase().includes(q),
+      );
+    }
+    if (active) out = out.filter(FILTERS[active].test);
+    if (shelf) out = out.filter((b) => b.shelfIds.includes(shelf));
+    return sort === "recent" ? out : [...out].sort(SORTS[sort].fn);
+  }, [books, query, active, shelf, sort]);
 
   const totalHours = books.reduce((s, b) => s + b.totalDuration, 0) / 3600;
-  // Books arrive newest-first, so the first in-progress one is the last thing listened to.
-  const hero = query.trim() ? null : inProgress[0] ?? null;
-  const heroRest = hero ? inProgress.filter((b) => b.id !== hero.id) : inProgress;
+  const listenedHours = books.reduce((s, b) => s + b.listened, 0) / 3600;
+
+  async function newShelf() {
+    const name = window.prompt("Name this shelf");
+    if (!name?.trim()) return;
+    const res = await fetch("/api/shelves", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: name.trim() }),
+    });
+    if (res.ok) {
+      toast.success(`Shelf “${name.trim()}” created`);
+      router.refresh();
+    } else toast.error("That name is already taken");
+  }
 
   if (books.length === 0) return <EmptyLibrary />;
 
   return (
     <div className="mx-auto max-w-7xl px-6 py-10">
-      <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-        <div>
-          <h1 className="text-4xl font-semibold tracking-tight">Your Library</h1>
-          <p className="text-muted-foreground mt-2 text-sm">
-            {books.length} {books.length === 1 ? "book" : "books"}
-            <span className="text-muted-foreground/40 mx-2">·</span>
-            {Math.round(totalHours)} hours of listening
-          </p>
+      <header className="mb-7">
+        <h1 className="text-4xl font-semibold tracking-tight">Library</h1>
+        <p className="text-muted-foreground mt-2 text-sm">
+          {books.length} books
+          <span className="text-muted-foreground/40 mx-2">·</span>
+          {Math.round(totalHours)}h total
+          <span className="text-muted-foreground/40 mx-2">·</span>
+          {Math.round(listenedHours)}h listened
+        </p>
+      </header>
+
+      <div className="mb-5 flex flex-wrap items-center gap-2">
+        <div className="relative min-w-56 flex-1">
+          <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
+          <Input
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Title, author, or series…"
+            aria-label="Search your library"
+            className="h-9 pl-9"
+          />
+          {query && (
+            <button
+              onClick={() => setQuery("")}
+              className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2.5 -translate-y-1/2"
+              aria-label="Clear search"
+            >
+              <X className="size-3.5" />
+            </button>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          <div className="relative">
-            <Search className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-4 -translate-y-1/2" />
-            <Input
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search your shelf…"
-              aria-label="Search your shelf"
-              className="h-9 w-56 pl-9"
-            />
-            {query && (
-              <button
-                onClick={() => setQuery("")}
-                className="text-muted-foreground hover:text-foreground absolute top-1/2 right-2.5 -translate-y-1/2"
-                aria-label="Clear search"
-              >
-                <X className="size-3.5" />
-              </button>
-            )}
-          </div>
-          <Button asChild className="h-9">
-            <Link href="/discover">
-              <BookPlus className="size-4" />
-              Add a book
-            </Link>
-          </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="secondary" size="sm">
+              {SORTS[sort].label}
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            {(Object.keys(SORTS) as SortKey[]).map((k) => (
+              <DropdownMenuItem key={k} onClick={() => setSort(k)}>
+                {SORTS[k].label}
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <div className="bg-secondary flex rounded-md p-0.5">
+          {(["list", "grid"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              aria-label={`${v} view`}
+              className={cn(
+                "rounded-md px-2 py-1 transition-colors",
+                view === v ? "bg-background text-foreground" : "text-muted-foreground",
+              )}
+            >
+              {v === "list" ? <Rows3 className="size-4" /> : <LayoutGrid className="size-4" />}
+            </button>
+          ))}
         </div>
-      </header>
+
+        <Button asChild size="sm">
+          <Link href="/discover">
+            <BookPlus className="size-4" />
+            Add a book
+          </Link>
+        </Button>
+      </div>
+
+      {/* Counts make a filter worth clicking — you can see there are three before you try. */}
+      <div className="mb-4 flex flex-wrap items-center gap-1.5">
+        {(Object.keys(FILTERS) as FilterKey[]).map((k) => {
+          const count = books.filter(FILTERS[k].test).length;
+          if (count === 0) return null;
+          return (
+            <button
+              key={k}
+              onClick={() => setActive(active === k ? null : k)}
+              className={cn(
+                "rounded-full border px-3 py-1 text-xs transition-colors",
+                active === k
+                  ? "border-position/60 text-foreground bg-position/10"
+                  : "border-border/70 text-muted-foreground hover:text-foreground",
+              )}
+            >
+              {FILTERS[k].label}
+              <span className="text-subtle-foreground ml-1.5 tabular-nums">{count}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="mb-7 flex flex-wrap items-center gap-1.5">
+        <span className="text-subtle-foreground text-xs">Shelves:</span>
+        {shelves.map((s) => (
+          <button
+            key={s.id}
+            onClick={() => setShelf(shelf === s.id ? null : s.id)}
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-xs transition-colors",
+              shelf === s.id
+                ? "bg-position/15 text-foreground"
+                : "text-muted-foreground hover:text-foreground",
+            )}
+          >
+            {s.name}
+            <span className="text-subtle-foreground ml-1 tabular-nums">{s.count}</span>
+          </button>
+        ))}
+        <button
+          onClick={newShelf}
+          className="text-subtle-foreground hover:text-foreground inline-flex items-center gap-1 px-1.5 text-xs"
+        >
+          <Plus className="size-3" />
+          New
+        </button>
+      </div>
 
       {filtered.length === 0 ? (
         <p className="text-muted-foreground py-20 text-center text-sm">
-          Nothing matches “{query}”.
+          Nothing matches those filters.
         </p>
+      ) : view === "list" ? (
+        <div className="space-y-1.5">
+          {filtered.map((b) => (
+            <BookRow key={b.id} book={b} playing={track?.partId === b.resumePartId} />
+          ))}
+        </div>
       ) : (
-        <div className="space-y-12">
-          {hero && <Hero book={hero} playing={track?.partId === hero.resumePartId} />}
-          {passage && <PassageOfTheDay passage={passage} />}
-          {heroRest.length > 0 && (
-            <Shelf title="Continue listening" books={heroRest} playingPartId={track?.partId} />
-          )}
-          {rest.length > 0 && (
-            <Shelf
-              title={inProgress.length > 0 ? "Everything else" : undefined}
-              books={rest}
-              playingPartId={track?.partId}
-            />
-          )}
+        <div className="grid grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-3 lg:grid-cols-5">
+          {filtered.map((b) => (
+            <BookCard key={b.id} book={b} playing={track?.partId === b.resumePartId} />
+          ))}
         </div>
       )}
     </div>
   );
 }
 
-/** A passage you saved, handed back to you. */
-function PassageOfTheDay({ passage }: { passage: Passage }) {
-  return (
-    <section className="relative overflow-hidden rounded-xl border">
-      {passage.coverUrl && (
-        <>
-          <div
-            aria-hidden
-            className="absolute inset-0 scale-110 bg-cover bg-center opacity-20 blur-3xl saturate-150"
-            style={{ backgroundImage: `url(${passage.coverUrl})` }}
-          />
-          <div aria-hidden className="from-background/85 to-background/95 absolute inset-0 bg-gradient-to-br" />
-        </>
-      )}
-
-      <div className="relative px-7 py-8 sm:px-9">
-        <p className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-[0.14em] uppercase">
-          <Quote className="size-3.5" />
-          A passage you saved
-        </p>
-
-        <blockquote className="mt-4 max-w-2xl text-lg leading-relaxed font-light text-balance">
-          {passage.quote}
-        </blockquote>
-
-        <div className="mt-5 flex flex-wrap items-center gap-3">
-          <Button asChild size="sm" variant="secondary">
-            <Link href={`/book/${passage.bookId}/play/${passage.partId}`}>
-              <Play className="size-3.5" />
-              Hear it
-            </Link>
-          </Button>
-          <p className="text-subtle-foreground text-xs">
-            {passage.bookTitle}
-            {passage.bookAuthor ? ` · ${passage.bookAuthor}` : ""}
-            <span className="text-muted-foreground/40 mx-2">·</span>
-            {formatTime(passage.timeSec)}
-          </p>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function Hero({ book, playing }: { book: LibraryBook; playing: boolean }) {
-  const pct = book.totalDuration > 0 ? (book.listened / book.totalDuration) * 100 : 0;
+/** One row saying what the square grid can't: progress, time left, and what exists. */
+function BookRow({ book, playing }: { book: LibraryBook; playing: boolean }) {
+  const p = pct(book);
   const remaining = Math.max(0, book.totalDuration - book.listened);
   const href = book.resumePartId
     ? `/book/${book.id}/play/${book.resumePartId}`
     : `/book/${book.id}`;
 
   return (
-    <section className="relative overflow-hidden rounded-xl border">
-      {/* The cover, blurred, doubles as the backdrop so each book colours its own hero. */}
-      {book.coverUrl && (
-        <div
-          aria-hidden
-          className="absolute inset-0 scale-110 bg-cover bg-center opacity-25 blur-2xl"
-          style={{ backgroundImage: `url(${book.coverUrl})` }}
-        />
-      )}
-      <div className="from-background/80 to-background/95 absolute inset-0 bg-gradient-to-r" />
+    <Link
+      href={href}
+      className="bg-card/50 hover:bg-card group flex items-center gap-4 rounded-xl border p-3 transition-colors"
+    >
+      <Cover src={book.coverUrl} className="h-16 w-11 shrink-0 rounded-md ring-1 ring-white/10" />
 
-      <div className="relative flex flex-col gap-7 p-7 sm:flex-row sm:items-center sm:p-9">
-        <Link href={href} className="group shrink-0">
-          <Cover
-            src={book.coverUrl}
-            className="size-40 rounded-xl shadow-2xl ring-1 ring-white/10 sm:size-48"
-            imgClassName="transition-transform duration-300 group-hover:scale-105"
-          />
-        </Link>
-
-        <div className="min-w-0 flex-1">
-          <p className="text-muted-foreground flex items-center gap-2 text-xs font-medium tracking-[0.14em] uppercase">
-            {playing ? (
-              <>
-                <AudioLines className="size-3.5" />
-                Now playing
-              </>
-            ) : (
-              "Pick up where you left off"
-            )}
-          </p>
-
-          <h2 className="mt-3 line-clamp-2 text-3xl leading-tight font-semibold tracking-tight">
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-2">
+          <p className="group-hover:text-position truncate text-sm font-medium transition-colors">
             {book.title}
-          </h2>
-          {book.author && <p className="text-muted-foreground mt-1.5">{book.author}</p>}
+          </p>
+          {playing && <AudioLines className="text-position size-3.5 shrink-0" />}
+          {book.queued && (
+            <span className="text-subtle-foreground shrink-0 text-xs">queued</span>
+          )}
+        </div>
+        <p className="text-muted-foreground truncate text-xs">{book.author ?? "Unknown"}</p>
 
-          <div className="mt-6 max-w-md">
-            <div className="bg-secondary h-1.5 w-full overflow-hidden rounded-full">
-              <div className="bg-position h-full rounded-full" style={{ width: `${pct}%` }} />
-            </div>
-            <p className="text-muted-foreground mt-2 text-xs tabular-nums">
-              {Math.round(pct)}% through
-              <span className="text-muted-foreground/40 mx-2">·</span>
-              {formatDuration(remaining)} left
-              {book.partCount > 1 && (
-                <>
-                  <span className="text-muted-foreground/40 mx-2">·</span>
-                  {book.partCount} parts
-                </>
-              )}
-            </p>
+        <div className="mt-2 flex items-center gap-3">
+          <div className="bg-secondary h-1 max-w-56 flex-1 overflow-hidden rounded-full">
+            <div className="bg-position h-full rounded-full" style={{ width: `${p}%` }} />
           </div>
-
-          <div className="mt-6 flex flex-wrap gap-2">
-            <Button asChild size="lg" className="h-11">
-              <Link href={href}>
-                <Play className="size-4" />
-                {playing ? "Back to the player" : "Resume"}
-              </Link>
-            </Button>
-            <Button asChild variant="secondary" size="lg" className="h-11">
-              <Link href={`/book/${book.id}`}>Book details</Link>
-            </Button>
-          </div>
+          <span className="text-subtle-foreground shrink-0 text-xs tabular-nums">
+            {p < 0.5 ? formatDuration(book.totalDuration) : `${formatDuration(remaining)} left`}
+          </span>
         </div>
       </div>
-    </section>
-  );
-}
 
-function Shelf({
-  title,
-  books,
-  playingPartId,
-}: {
-  title?: string;
-  books: LibraryBook[];
-  playingPartId?: string;
-}) {
-  return (
-    <section>
-      {title && (
-        <h2 className="text-muted-foreground mb-5 text-xs font-medium tracking-[0.14em] uppercase">
-          {title}
-        </h2>
-      )}
-      <div className="grid grid-cols-2 gap-x-6 gap-y-9 sm:grid-cols-3 lg:grid-cols-5">
-        {books.map((b) => (
-          <BookCard key={b.id} book={b} playing={!!playingPartId && playingPartId === b.resumePartId} />
-        ))}
+      <div className="text-subtle-foreground hidden shrink-0 items-center gap-3 text-xs sm:flex">
+        {book.partCount > 1 && <span>{book.partCount} parts</span>}
+        {book.chapterCount > 0 && (
+          <span className="inline-flex items-center gap-1">
+            <ListTree className="size-3" />
+            {book.chapterCount}
+          </span>
+        )}
+        {book.ebookCount > 0 && (
+          <span
+            className={cn("inline-flex items-center gap-1", book.alignedMarks > 1 && "text-position")}
+            title={book.alignedMarks > 1 ? "Text follows the narration" : "Ebook loaded, not aligned"}
+          >
+            {book.alignedMarks > 1 ? <Waypoints className="size-3" /> : <FileText className="size-3" />}
+          </span>
+        )}
+        {book.bookmarkCount > 0 && (
+          <span className="inline-flex items-center gap-1 tabular-nums">
+            <Bookmark className="size-3" />
+            {book.bookmarkCount}
+          </span>
+        )}
       </div>
-    </section>
+    </Link>
   );
 }
 
 function BookCard({ book, playing }: { book: LibraryBook; playing: boolean }) {
-  const pct = book.totalDuration > 0 ? (book.listened / book.totalDuration) * 100 : 0;
-  const remaining = Math.max(0, book.totalDuration - book.listened);
+  const p = pct(book);
   const href = book.resumePartId
     ? `/book/${book.id}/play/${book.resumePartId}`
     : `/book/${book.id}`;
 
   return (
     <Link href={href} className="group block focus-visible:outline-none">
-      <div className="bg-muted relative aspect-square overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/8 transition-[transform,box-shadow] duration-300 group-hover:-translate-y-1 group-hover:shadow-2xl group-focus-visible:ring-2 group-focus-visible:ring-white/40">
-        <Cover
-          src={book.coverUrl}
-          className="absolute inset-0"
-          imgClassName="transition-transform duration-300 group-hover:scale-[1.04]"
-        />
-
-        {/* Keeps the meta legible over bright cover art. */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/5 bg-gradient-to-t from-black/75 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
-
+      <div className="bg-muted relative aspect-square overflow-hidden rounded-xl shadow-2xl ring-1 ring-white/8 transition-[transform,box-shadow] duration-300 group-hover:-translate-y-1">
+        <Cover src={book.coverUrl} className="absolute inset-0" />
         {playing && (
-          <span className="bg-primary text-primary-foreground absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium shadow-sm">
+          <span className="bg-position text-primary-foreground absolute top-2.5 left-2.5 flex items-center gap-1 rounded-full px-2 py-1 text-xs font-medium">
             <AudioLines className="size-3" />
             Playing
           </span>
         )}
-
-        {pct > 0.5 && (
-          <span className="pointer-events-none absolute right-2.5 bottom-2.5 rounded-full bg-black/70 px-2 py-0.5 text-xs font-medium text-white opacity-0 backdrop-blur transition-opacity duration-300 group-hover:opacity-100">
-            {formatDuration(remaining)} left
-          </span>
-        )}
-
-        {pct > 0.5 && (
+        {p > 0.5 && (
           <div className="absolute inset-x-0 bottom-0 h-[3px] bg-black/40">
-            <div className="bg-position h-full" style={{ width: `${pct}%` }} />
+            <div className="bg-position h-full" style={{ width: `${p}%` }} />
           </div>
         )}
       </div>
-
-      <div className="mt-3">
-        <h3
-          className={cn(
-            "line-clamp-2 text-sm leading-snug font-medium transition-colors",
-            "group-hover:text-primary",
-          )}
-        >
-          {book.title}
-        </h3>
-        {book.author && (
-          <p className="text-muted-foreground mt-1 line-clamp-1 text-xs">{book.author}</p>
-        )}
-        <div className="text-muted-foreground mt-2 flex items-center gap-2.5 text-xs">
-          <span className="tabular-nums">{formatDuration(book.totalDuration)}</span>
-          {book.partCount > 1 && <span>{book.partCount} parts</span>}
-          {book.ebookCount > 0 && <FileText className="size-3" />}
-          {book.bookmarkCount > 0 && (
-            <span className="inline-flex items-center gap-1 tabular-nums">
-              <Bookmark className="size-3" />
-              {book.bookmarkCount}
-            </span>
-          )}
-        </div>
-      </div>
+      <h3 className="group-hover:text-position mt-3 line-clamp-2 text-sm leading-snug font-medium transition-colors">
+        {book.title}
+      </h3>
+      {book.author && (
+        <p className="text-muted-foreground mt-1 line-clamp-1 text-xs">{book.author}</p>
+      )}
     </Link>
   );
 }
@@ -351,19 +374,16 @@ function BookCard({ book, playing }: { book: LibraryBook; playing: boolean }) {
 function EmptyLibrary() {
   return (
     <div className="mx-auto max-w-7xl px-6 py-10">
-      <h1 className="text-4xl font-semibold tracking-tight">Your Library</h1>
+      <h1 className="text-4xl font-semibold tracking-tight">Library</h1>
       <div className="border-border/60 mt-10 flex flex-col items-center rounded-xl border border-dashed px-6 py-24 text-center">
-        <Headphones className="text-muted-foreground/40 size-12" />
+        <BookPlus className="text-muted-foreground/40 size-12" />
         <h2 className="mt-5 text-lg font-medium">Nothing on the shelf yet</h2>
         <p className="text-muted-foreground mt-2 max-w-md text-sm leading-relaxed">
           Search YouTube from inside the app, or paste a link to any audiobook. Chapters and
           transcripts come along automatically.
         </p>
-        <Button asChild className="mt-7 h-10">
-          <Link href="/discover">
-            <BookPlus className="size-4" />
-            Find an audiobook
-          </Link>
+        <Button asChild className="mt-7">
+          <Link href="/discover">Find an audiobook</Link>
         </Button>
       </div>
     </div>
