@@ -1,10 +1,13 @@
 import { prisma } from "@/lib/db";
 import {
+  averageSpeed,
   currentStreak,
   dailyAverage,
   longestStreak,
   paceEta,
   recentDays,
+  typicalSession,
+  usualHours,
 } from "@/lib/listening";
 import { StatsClient, type StatsData } from "./stats-client";
 
@@ -12,9 +15,10 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Stats — Shelf" };
 
 export default async function StatsPage() {
-  const [books, days, bookmarks, chapters, ebooks] = await Promise.all([
+  const [books, days, sessions, bookmarks, chapters, ebooks] = await Promise.all([
     prisma.book.findMany({ include: { parts: true }, orderBy: { updatedAt: "desc" } }),
     prisma.listeningDay.findMany({ orderBy: { date: "asc" } }),
+    prisma.listeningSession.findMany({ orderBy: { startedAt: "asc" } }),
     prisma.bookmark.count(),
     prisma.chapter.count(),
     prisma.ebook.count(),
@@ -53,6 +57,11 @@ export default async function StatsPage() {
     bookmarks,
     chapters,
     ebooks,
+
+    typicalSessionSec: typicalSession(sessions),
+    usual: usualHours(sessions),
+    averageSpeed: averageSpeed(sessions),
+    sessionCount: sessions.filter((s) => s.seconds >= 60).length,
 
     // Only for books genuinely under way, and only when there is enough listening
     // recorded for the estimate to mean anything.

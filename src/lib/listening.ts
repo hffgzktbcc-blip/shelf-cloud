@@ -82,3 +82,62 @@ export function greeting(now = new Date()): string {
   const day = now.toLocaleDateString(undefined, { weekday: "long" });
   return `${day} ${part}`;
 }
+
+export type Session = {
+  startedAt: Date;
+  endedAt: Date;
+  seconds: number;
+  rateSum: number;
+};
+
+/**
+ * The median session, not the mean — one four-hour Sunday shouldn't describe a week of
+ * twenty-minute commutes. Sessions under a minute are dropped as noise: opening a book,
+ * hearing a sentence and closing it isn't a listening session.
+ */
+export function typicalSession(sessions: Session[]): number | null {
+  const real = sessions.map((s) => s.seconds).filter((s) => s >= 60).sort((a, b) => a - b);
+  if (real.length === 0) return null;
+  const mid = Math.floor(real.length / 2);
+  return real.length % 2 ? real[mid] : Math.round((real[mid - 1] + real[mid]) / 2);
+}
+
+/**
+ * The stretch of the day you actually listen in, as a contiguous window of hours holding
+ * the most listening. Returns null until there's enough spread to mean anything.
+ */
+export function usualHours(sessions: Session[], windowSize = 3): { from: number; to: number } | null {
+  const byHour = new Array(24).fill(0) as number[];
+  let total = 0;
+
+  for (const s of sessions) {
+    // Attribute a session to the hour it began; sessions are short enough that spreading
+    // them across hours would add precision the data doesn't have.
+    byHour[s.startedAt.getHours()] += s.seconds;
+    total += s.seconds;
+  }
+  if (total < 600) return null;
+
+  let bestStart = 0;
+  let best = -1;
+  for (let start = 0; start < 24; start++) {
+    let sum = 0;
+    for (let i = 0; i < windowSize; i++) sum += byHour[(start + i) % 24];
+    if (sum > best) {
+      best = sum;
+      bestStart = start;
+    }
+  }
+
+  // A window holding almost nothing isn't a pattern.
+  if (best / total < 0.4) return null;
+  return { from: bestStart, to: (bestStart + windowSize) % 24 };
+}
+
+/** Weighted by the seconds each rate applied to, so a brief 2x burst doesn't skew it. */
+export function averageSpeed(sessions: Session[]): number | null {
+  const seconds = sessions.reduce((s, x) => s + x.seconds, 0);
+  if (seconds < 300) return null;
+  const weighted = sessions.reduce((s, x) => s + x.rateSum, 0);
+  return weighted / seconds;
+}

@@ -201,6 +201,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           positionSec: state.currentTime,
+          rate,
           ...(state.duration ? { duration: Math.round(state.duration) } : {}),
         }),
       }).catch(() => {});

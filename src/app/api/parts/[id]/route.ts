@@ -7,6 +7,8 @@ export const dynamic = "force-dynamic";
 
 const patchSchema = z.object({
   positionSec: z.number().min(0).optional(),
+  /** Playback rate at the moment of the save, so average speed reflects real listening. */
+  rate: z.number().min(0.25).max(4).optional(),
   completed: z.boolean().optional(),
   title: z.string().min(1).optional(),
   duration: z.number().min(0).optional(),
@@ -22,16 +24,54 @@ const patchSchema = z.object({
  */
 const MAX_CREDIT_SEC = 60;
 
-async function creditListening(previousSec: number, nextSec: number) {
+/** A gap longer than this ends a session; the next save starts a new one. */
+const SESSION_GAP_MS = 5 * 60 * 1000;
+
+async function creditListening(
+  previousSec: number,
+  nextSec: number,
+  ctx: { bookId: string; partId: string; rate: number },
+) {
   const delta = nextSec - previousSec;
   if (delta <= 0 || delta > MAX_CREDIT_SEC) return;
 
-  const date = new Date().toLocaleDateString("en-CA");
+  const seconds = Math.round(delta);
+  const now = new Date();
+
+  const date = now.toLocaleDateString("en-CA");
   await prisma.listeningDay.upsert({
     where: { date },
-    create: { date, seconds: Math.round(delta) },
-    update: { seconds: { increment: Math.round(delta) } },
+    create: { date, seconds },
+    update: { seconds: { increment: seconds } },
   });
+
+  // Extend the run in progress, or begin a new one if the last save was a while ago.
+  const latest = await prisma.listeningSession.findFirst({ orderBy: { endedAt: "desc" } });
+  const continues = latest && now.getTime() - latest.endedAt.getTime() < SESSION_GAP_MS;
+
+  if (continues) {
+    await prisma.listeningSession.update({
+      where: { id: latest.id },
+      data: {
+        endedAt: now,
+        seconds: { increment: seconds },
+        rateSum: { increment: ctx.rate * seconds },
+        bookId: ctx.bookId,
+        partId: ctx.partId,
+      },
+    });
+  } else {
+    await prisma.listeningSession.create({
+      data: {
+        bookId: ctx.bookId,
+        partId: ctx.partId,
+        startedAt: now,
+        endedAt: now,
+        seconds,
+        rateSum: ctx.rate * seconds,
+      },
+    });
+  }
 }
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -45,10 +85,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ id: string }>
       ? await prisma.part.findUnique({ where: { id }, select: { positionSec: true } })
       : null;
 
-  const part = await prisma.part.update({ where: { id }, data: parsed.data });
+  const { rate: _rate, ...partData } = parsed.data;
+  const part = await prisma.part.update({ where: { id }, data: partData });
 
   if (before && parsed.data.positionSec !== undefined) {
-    await creditListening(before.positionSec, parsed.data.positionSec);
+    await creditListening(before.positionSec, parsed.data.positionSec, {
+      bookId: part.bookId,
+      partId: part.id,
+      rate: parsed.data.rate ?? 1,
+    });
   }
   await prisma.book.update({
     where: { id: part.bookId },

@@ -166,12 +166,13 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           positionSec: position,
+          rate,
           completed,
           ...(state.duration ? { duration: Math.round(state.duration) } : {}),
         }),
       }).catch(() => {});
     },
-    [part.id, state.duration],
+    [part.id, state.duration, rate],
   );
 
   useEffect(() => {

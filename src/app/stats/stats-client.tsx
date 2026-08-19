@@ -2,7 +2,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Bookmark, CircleCheckBig, Clock, FileText, Flame, ListTree } from "lucide-react";
+import {
+  Bookmark,
+  CircleCheckBig,
+  Clock,
+  FileText,
+  Flame,
+  Gauge,
+  Hourglass,
+  ListTree,
+  Sunrise,
+} from "lucide-react";
 import { Cover } from "@/components/cover";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +37,10 @@ export type StatsData = {
   bookmarks: number;
   chapters: number;
   ebooks: number;
+  typicalSessionSec: number | null;
+  usual: { from: number; to: number } | null;
+  averageSpeed: number | null;
+  sessionCount: number;
   pace: {
     id: string;
     title: string;
@@ -124,6 +138,36 @@ export function StatsClient({ data }: { data: StatsData }) {
         />
       </div>
 
+      <Section
+        title="How you listen"
+        aside={data.sessionCount > 0 ? `${data.sessionCount} sessions` : "recording started"}
+      >
+        <div className="grid gap-3 sm:grid-cols-3">
+          <Metric
+            icon={Hourglass}
+            label="Typical session"
+            value={data.typicalSessionSec ? hours(data.typicalSessionSec) : "—"}
+            sub={data.typicalSessionSec ? "median" : "needs a few sessions"}
+          />
+          <Metric
+            icon={Sunrise}
+            label="Usual time"
+            value={
+              data.usual
+                ? `${String(data.usual.from).padStart(2, "0")}:00 – ${String(data.usual.to).padStart(2, "0")}:00`
+                : "—"
+            }
+            sub={data.usual ? "when most listening happens" : "no pattern yet"}
+          />
+          <Metric
+            icon={Gauge}
+            label="Average speed"
+            value={data.averageSpeed ? `${data.averageSpeed.toFixed(2)}×` : "—"}
+            sub={data.averageSpeed ? "weighted by time" : "needs 5 minutes"}
+          />
+        </div>
+      </Section>
+
       <Section title="Last 14 days" aside={`daily average ${hours(data.dailyAverageSec)}`}>
         <Bars days={data.last14} />
       </Section>
@@ -192,9 +236,9 @@ export function StatsClient({ data }: { data: StatsData }) {
       </Section>
 
       <p className="text-subtle-foreground mt-11 text-xs leading-relaxed">
-        Session length, time of day and average speed aren&apos;t here because none of them are
-        recorded — the app stores seconds per calendar day, with no session boundaries, clock
-        time or playback rate. They&apos;d be invented rather than measured.
+        Session length, time of day and speed are measured from now on — a session is a run of
+        listening with no five-minute gap in it, and speed is weighted by how long each rate was
+        held. They read &ldquo;—&rdquo; until there is enough to describe rather than guess.
       </p>
     </div>
   );

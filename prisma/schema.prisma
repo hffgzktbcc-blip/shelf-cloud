@@ -179,3 +179,22 @@ model ShelfBook {
 
   @@id([shelfId, bookId])
 }
+
+/// A continuous run of listening. The player saves its position every few seconds, so a
+/// session is a chain of those saves with no long gap between them. Recording this is what
+/// makes session length, time of day and average speed answerable — none of which the
+/// per-day tally could ever support.
+model ListeningSession {
+  id        String   @id @default(cuid())
+  bookId    String?
+  partId    String?
+  startedAt DateTime @default(now())
+  /// Bumped on every credited save, so an abandoned session still has a sane end.
+  endedAt   DateTime @default(now())
+  /// Audio actually heard, which at 2x is half the wall-clock time.
+  seconds   Int      @default(0)
+  /// Rate weighted by the seconds it applied to, so the average reflects real listening.
+  rateSum   Float    @default(0)
+
+  @@index([startedAt])
+}
