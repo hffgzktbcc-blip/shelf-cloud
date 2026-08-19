@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import path from "node:path";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { md5, putProgress, type Progress } from "@/lib/kosync";
+import { md5, putProgress, shelfPercentage, type Progress } from "@/lib/kosync";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,5 +53,11 @@ export async function POST(req: Request) {
     timestamp: Math.floor(Date.now() / 1000),
   };
   await putProgress(progress);
-  return NextResponse.json({ ok: true, document: progress.document, timestamp: progress.timestamp });
+  const shelf = await shelfPercentage(progress.document);
+  return NextResponse.json({
+    ok: true,
+    document: progress.document,
+    timestamp: progress.timestamp,
+    shelfPercentage: shelf === null ? null : Math.max(shelf, progress.percentage),
+  });
 }

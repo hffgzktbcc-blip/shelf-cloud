@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/db";
 import { currentStreak, dailyAverage, greeting, recentDays, today } from "@/lib/listening";
+import { listProgress } from "@/lib/kosync";
 import { HomeClient, type HomeData } from "./home-client";
 
 export const dynamic = "force-dynamic";
@@ -14,7 +15,7 @@ export default async function HomePage() {
     if (existing === 0) redirect("/welcome");
   }
 
-  const [books, days, queue, passages] = await Promise.all([
+  const [books, days, queue, passages, syncToken, koboProgress] = await Promise.all([
     prisma.book.findMany({
       orderBy: { updatedAt: "desc" },
       include: {
@@ -32,6 +33,8 @@ export default async function HomePage() {
       include: { book: { select: { id: true, title: true, author: true, coverUrl: true } } },
       orderBy: { createdAt: "asc" },
     }),
+    prisma.setting.findUnique({ where: { key: "koboSyncToken" } }),
+    listProgress(),
   ]);
 
   const week = recentDays(days, 7);
@@ -65,6 +68,16 @@ export default async function HomePage() {
       minutes: Math.round(d.seconds / 60),
     })),
     dailyAverageMin: Math.round(dailyAverage(recentDays(days, 14)) / 60),
+    kobo: {
+      configured: Boolean(syncToken?.value),
+      latest: koboProgress[0]
+        ? {
+            label: koboProgress[0].label ?? koboProgress[0].document,
+            percentage: koboProgress[0].percentage,
+            timestamp: koboProgress[0].timestamp,
+          }
+        : null,
+    },
 
     resume: resumeBook && resumePart
       ? {

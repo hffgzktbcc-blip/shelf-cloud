@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { BookOpen, GripVertical, Library, Play, Quote, Sparkles, X } from "lucide-react";
+import { BookOpen, GripVertical, Library, Play, Quote, Sparkles, Tablet, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Cover } from "@/components/cover";
 import { cn } from "@/lib/utils";
@@ -16,6 +16,14 @@ export type HomeData = {
   onTheGo: number;
   week: { label: string; minutes: number }[];
   dailyAverageMin: number;
+  kobo: {
+    configured: boolean;
+    latest: {
+      label: string;
+      percentage: number;
+      timestamp: number;
+    } | null;
+  };
   resume: {
     bookId: string;
     partId: string;
@@ -53,9 +61,35 @@ export function HomeClient({ data }: { data: HomeData }) {
     <div className="mx-auto max-w-5xl px-6 py-10">
       <Header data={data} />
       {data.resume ? <Resume resume={data.resume} /> : <NothingStarted />}
+      <KoboStatus status={data.kobo} />
       <Queue initial={data.queue} />
       {data.passage && <Passage passage={data.passage} />}
     </div>
+  );
+}
+
+function KoboStatus({ status }: { status: HomeData["kobo"] }) {
+  const percentage = status.latest ? Math.round(status.latest.percentage * 100) : null;
+
+  return (
+    <section className="mt-6 flex flex-wrap items-center gap-4 rounded-xl border px-4 py-3 sm:px-5">
+      <div className="flex min-w-0 flex-1 items-center gap-3">
+        <Tablet className="text-position size-5 shrink-0" />
+        <div className="min-w-0">
+          <p className="text-sm font-medium">Kobo reading</p>
+          <p className="text-muted-foreground truncate text-xs">
+            {!status.configured
+              ? "Sync is not set up"
+              : status.latest
+                ? `${status.latest.label} · ${percentage}% received`
+                : "Ready for your first sync"}
+          </p>
+        </div>
+      </div>
+      <Button asChild size="sm" variant="secondary">
+        <Link href="/kobo">{status.latest ? "View position" : "Set up sync"}</Link>
+      </Button>
+    </section>
   );
 }
 

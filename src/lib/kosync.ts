@@ -24,6 +24,8 @@ export type Progress = {
   timestamp: number;
 };
 
+const STORAGE_DIR = path.join(process.cwd(), "storage", "ebooks");
+
 const USER_KEY = "kosync.user";
 const progressKey = (doc: string) => `kosync.progress.${doc}`;
 const bindKey = (doc: string) => `kosync.bind.${doc}`;
@@ -121,6 +123,50 @@ export async function putProgress(p: Progress): Promise<void> {
     create: { key: progressKey(p.document), value },
     update: { value },
   });
+}
+
+/** Finds the Shelf reading percentage that corresponds to the current audio position. */
+export async function shelfPercentage(document: string): Promise<number | null> {
+  const ebooks = await prisma.ebook.findMany({
+    include: {
+      book: {
+        select: {
+          lastPartId: true,
+          parts: { select: { id: true, positionSec: true }, orderBy: { order: "asc" } },
+        },
+      },
+      syncMarks: { select: { blockIndex: true, timeSec: true, partId: true } },
+    },
+  });
+
+  const ebook = ebooks.find((candidate) => {
+    if (!candidate.filePath) return false;
+    return documentHashes(path.join(STORAGE_DIR, candidate.filePath), candidate.fileName).includes(document);
+  });
+  if (!ebook || !ebook.book.lastPartId) return null;
+
+  const part = ebook.book.parts.find((candidate) => candidate.id === ebook.book.lastPartId);
+  if (!part || !ebook.blocksJson) return null;
+
+  const marks = ebook.syncMarks
+    .filter((mark) => mark.partId === part.id && mark.blockIndex !== null)
+    .sort((a, b) => a.timeSec - b.timeSec);
+  if (marks.length === 0) return null;
+
+  const before = [...marks].reverse().find((mark) => mark.timeSec <= part.positionSec) ?? marks[0];
+  const after = marks.find((mark) => mark.timeSec > part.positionSec);
+  let blockIndex = before.blockIndex!;
+  if (after && after.timeSec !== before.timeSec) {
+    const fraction = (part.positionSec - before.timeSec) / (after.timeSec - before.timeSec);
+    blockIndex = Math.round(before.blockIndex! + fraction * (after.blockIndex! - before.blockIndex!));
+  }
+
+  const blocks = (JSON.parse(ebook.blocksJson).blocks ?? []) as { index: number; text: string }[];
+  const total = blocks.reduce((sum, block) => sum + block.text.length, 0);
+  if (total === 0) return null;
+  const seen = blocks.slice(0, blocks.findIndex((block) => block.index >= blockIndex) + 1)
+    .reduce((sum, block) => sum + block.text.length, 0);
+  return Math.max(0, Math.min(1, seen / total));
 }
 
 export async function getProgress(document: string): Promise<Progress | null> {

@@ -1,6 +1,6 @@
 # Shelf sync for a stock Kobo
 
-Sends reading positions from the **stock Kobo reader** to Shelf over Wi-Fi. Nothing here
+Syncs reading positions between the **stock Kobo reader** and Shelf over Wi-Fi. Nothing here
 launches KOReader, and you carry on reading in Kobo's own reader as normal.
 
 It does, however, **need the KOReader tree to be installed**, because that is where the Kobo
@@ -19,7 +19,10 @@ Stock-reader progress lives in `.kobo/KoboReader.sqlite`, in the `content` table
 - `DateLastRead` — when it was last opened
 - `ContentType` — 6 is a book; 9 and 899 are chapters and other sub-entries
 
-The script takes the twenty most recently read books and posts each position.
+The script takes the twenty most recently read books and posts each position. Shelf replies with
+its current position when that book is linked and aligned, and the script writes that position
+back into the Kobo database. This means a newer position on either side can be carried across
+on the next sync.
 
 Two things about this table are worth knowing, because both were found the hard way on a
 Clara Colour. `ContentType` must be filtered or chapter rows swamp the real titles. And
@@ -41,7 +44,13 @@ book by hand on its page in Shelf.
    themselves never need editing.
 4. Copy `nickelmenu-shelf-sync.conf` to `.adds/nm/`.
 5. Eject the Kobo cleanly and let NickelMenu reload.
-6. With the Kobo on the same Wi-Fi as the Mac, open the **Shelf sync** entry in NickelMenu.
+6. With the Kobo on the same Wi-Fi as the Mac, open **Start Shelf automatic sync** in
+   NickelMenu. The helper keeps running and syncs every minute while the Kobo is awake.
+   Opening the menu again is harmless if it is already running.
+
+The helper currently needs to be started again after a Kobo reboot. NickelMenu does not
+provide a supported boot or wake trigger. Once started, it syncs repeatedly while you read
+on Kobo or listen in Shelf; the next poll carries the newer position in either direction.
 
 ## Finding Shelf
 
@@ -55,6 +64,17 @@ second rather than half a minute. Whatever answers is remembered for next time, 
 that moves fixes itself on the next sync.
 
 Setting `SHELF_HOST` is optional and only skips the first sweep.
+
+## Automatic sync behavior
+
+The interval defaults to 60 seconds and can be changed with `SHELF_INTERVAL` in
+`shelf-sync.conf`. Only one helper instance is allowed at a time. Each poll reads the stock
+reader's current percentage, sends it to Shelf, and writes Shelf's merged percentage back to
+the Kobo database. The existing monotonic rule means an older position cannot move either
+side backward.
+
+Use **Stop Shelf automatic sync** in NickelMenu when you want to stop the background helper
+and conserve battery.
 
 ## When something goes wrong
 

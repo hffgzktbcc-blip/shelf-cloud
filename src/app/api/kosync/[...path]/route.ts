@@ -5,6 +5,7 @@ import {
   getUser,
   md5,
   putProgress,
+  shelfPercentage,
   setUser,
   type Progress,
 } from "@/lib/kosync";
@@ -44,8 +45,25 @@ export async function GET(req: Request, { params }: { params: Promise<{ path: st
 
   if (path[0] === "syncs" && path[1] === "progress" && path[2]) {
     const p = await getProgress(path[2]);
+    const percentage = await shelfPercentage(path[2]);
+    const mergedPercentage =
+      percentage === null ? null : Math.max(percentage, p?.percentage ?? 0);
     // KOReader treats an empty document as "nothing synced yet" rather than an error.
-    return NextResponse.json(p ?? { document: path[2] });
+    return NextResponse.json(
+      p
+        ? {
+            ...p,
+            ...(mergedPercentage === null
+              ? {}
+              : { percentage: mergedPercentage, progress: String(mergedPercentage) }),
+          }
+        : {
+            document: path[2],
+            ...(mergedPercentage === null
+              ? {}
+              : { percentage: mergedPercentage, progress: String(mergedPercentage) }),
+          },
+    );
   }
 
   return err(404, "Not found", 404);

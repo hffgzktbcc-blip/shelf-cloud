@@ -118,11 +118,16 @@ The other three sources work regardless.
 ## Reading position from your Kobo, over WiFi
 
 Shelf supports the stock Kobo reader on the Clara Colour through the installed Shelf sync entry.
-Open **NickelMenu → Shelf sync** while the Kobo and Mac are on the same WiFi network. The helper
-reads the stock reader's position and sends it to the local Shelf server; KOReader is not needed.
+USB is only needed once to install the helper files. After that, open **NickelMenu → Shelf sync**
+while the Kobo and Mac are on the same WiFi network: the helper reads the stock reader's position,
+sends it to Shelf, and writes any newer Shelf position back to the Kobo. KOReader is not needed
+for the stock-reader flow.
 
 The Mac must be running Shelf, and the Kobo helper must point at the Mac's current local address.
 If your router changes that address, update the helper's `SHELF_URL` in `.adds/shelf-sync/`.
+
+Stock Kobo firmware does not expose a network listener for Shelf to wake or push to on its own, so
+the sync must currently be started from the Kobo. It does not require plugging the Kobo in again.
 
 Shelf also retains a KOReader-compatible endpoint for users who already use KOReader, but it is
 not required for stock-reader sync. **From Kobo** highlight import still uses USB.

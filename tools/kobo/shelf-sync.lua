@@ -10,6 +10,8 @@ ffi.cdef[[
   int sqlite3_prepare_v2(sqlite3 *, const char *, int, sqlite3_stmt **, const char **);
   int sqlite3_step(sqlite3_stmt *);
   int sqlite3_finalize(sqlite3_stmt *);
+  int sqlite3_bind_double(sqlite3_stmt *, int, double);
+  int sqlite3_bind_text(sqlite3_stmt *, int, const char *, int, void (*)(void *));
   const unsigned char *sqlite3_column_text(sqlite3_stmt *, int);
   int sqlite3_column_int(sqlite3_stmt *, int);
   const char *sqlite3_errmsg(sqlite3 *);
@@ -17,7 +19,10 @@ ffi.cdef[[
 
 local SQLITE_OK = 0
 local SQLITE_ROW = 100
+local SQLITE_DONE = 101
 local SQLITE_OPEN_READONLY = 0x00000001
+local SQLITE_OPEN_READWRITE = 0x00000002
+local SQLITE_TRANSIENT = ffi.cast("void (*)(void *)", -1)
 local sqlite = ffi.load("/mnt/onboard/.adds/koreader/libs/libsqlite3.so.0")
 local token = assert(os.getenv("SHELF_TOKEN"), "SHELF_TOKEN is not configured")
 local port = tonumber(os.getenv("SHELF_PORT") or "3000") or 3000
@@ -183,7 +188,7 @@ local url = endpoint(host)
 write_cache(host)
 
 local db_ptr = ffi.new("sqlite3*[1]")
-local rc = sqlite.sqlite3_open_v2("/mnt/onboard/.kobo/KoboReader.sqlite", db_ptr, SQLITE_OPEN_READONLY, nil)
+local rc = sqlite.sqlite3_open_v2("/mnt/onboard/.kobo/KoboReader.sqlite", db_ptr, SQLITE_OPEN_READWRITE, nil)
 if rc ~= SQLITE_OK then
   error("could not open Kobo database: " .. (db_ptr[0] ~= nil and ffi.string(sqlite.sqlite3_errmsg(db_ptr[0])) or tostring(rc)))
 end
@@ -221,9 +226,9 @@ while sqlite.sqlite3_step(stmt_ptr[0]) == SQLITE_ROW do
   percentages[#percentages + 1] = sqlite.sqlite3_column_int(stmt_ptr[0], 1)
 end
 sqlite.sqlite3_finalize(stmt_ptr[0])
-sqlite.sqlite3_close(db)
 
 local sent = 0
+local pulled = 0
 for i = 1, #documents do
   local body = '{"document":' .. json_string(documents[i]) ..
     ',"percentage":' .. string.format("%.6f", percentages[i] / 100) ..
@@ -242,6 +247,19 @@ for i = 1, #documents do
   }
   if ok and tonumber(code) == 200 then
     sent = sent + 1
+    local response_body = table.concat(response)
+    local shelf_percentage = response_body:match('"shelfPercentage"%s*:%s*([0-9%.]+)')
+    if shelf_percentage then
+      local update_ptr = ffi.new("sqlite3_stmt*[1]")
+      local update_sql = "update content set ___PercentRead = ? where ContentID = ?"
+      local update_rc = sqlite.sqlite3_prepare_v2(db, update_sql, -1, update_ptr, nil)
+      if update_rc == SQLITE_OK then
+        sqlite.sqlite3_bind_double(update_ptr[0], 1, tonumber(shelf_percentage) * 100)
+        sqlite.sqlite3_bind_text(update_ptr[0], 2, documents[i], -1, SQLITE_TRANSIENT)
+        if sqlite.sqlite3_step(update_ptr[0]) == SQLITE_DONE then pulled = pulled + 1 end
+        sqlite.sqlite3_finalize(update_ptr[0])
+      end
+    end
   else
     io.stderr:write("Shelf sync failed for ", documents[i], " (", tostring(code), ")\n")
   end
@@ -249,8 +267,9 @@ end
 if #documents == 0 then
   print("Shelf sync: nothing to send — no downloaded book has been opened yet")
 else
-  print("Shelf sync: sent " .. tostring(sent) .. " of " .. tostring(#documents))
+  print("Shelf sync: sent " .. tostring(sent) .. " of " .. tostring(#documents) .. ", pulled " .. tostring(pulled) .. " back")
   if sent == 0 then
     error("no position was accepted — see the lines above")
   end
 end
+sqlite.sqlite3_close(db)

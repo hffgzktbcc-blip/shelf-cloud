@@ -9,6 +9,8 @@
 ROOT="/mnt/onboard/.adds/shelf-sync"
 CONF="$ROOT/shelf-sync.conf"
 LOG="$ROOT/last-error.log"
+LOCK="$ROOT/.sync.lock"
+PIDFILE="$ROOT/.sync.pid"
 
 # LuaJIT, SQLite and LuaSocket come from the KOReader install. Nothing here starts
 # KOReader, but the tree has to be present.
@@ -39,16 +41,37 @@ if [ ! -r "$ROOT/shelf-sync.lua" ]; then
   exit 1
 fi
 
-{
-  LUA_PATH="$LUA_PATH" LUA_CPATH="$LUA_CPATH" LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
-  SHELF_TOKEN="$SHELF_TOKEN" SHELF_HOST="$SHELF_HOST" SHELF_PORT="$SHELF_PORT" \
-  SHELF_ROOT="$ROOT" \
-    "$LUA" "$ROOT/shelf-sync.lua"
-} 2>"$LOG"
-exit_code=$?
-
-if [ "$exit_code" -ne 0 ]; then
-  echo "Shelf sync failed. Details in last-error.log"
-  cat "$LOG"
+if [ "${1:-}" = "stop" ]; then
+  if [ -r "$PIDFILE" ]; then
+    kill "$(cat "$PIDFILE")" 2>/dev/null || true
+    rm -f "$PIDFILE"
+    echo "Shelf sync: automatic sync stopped"
+  else
+    echo "Shelf sync: automatic sync is not running"
+  fi
+  exit 0
 fi
-exit "$exit_code"
+
+if ! mkdir "$LOCK" 2>/dev/null; then
+  echo "Shelf sync: automatic sync is already running"
+  exit 0
+fi
+trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+echo "$$" >"$PIDFILE"
+trap 'rm -f "$PIDFILE"; rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
+
+INTERVAL="${SHELF_INTERVAL:-60}"
+case "$INTERVAL" in
+  ''|*[!0-9]*) INTERVAL=60 ;;
+esac
+
+echo "Shelf sync: automatic sync started (every ${INTERVAL}s)"
+while :; do
+  {
+    LUA_PATH="$LUA_PATH" LUA_CPATH="$LUA_CPATH" LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
+    SHELF_TOKEN="$SHELF_TOKEN" SHELF_HOST="$SHELF_HOST" SHELF_PORT="$SHELF_PORT" \
+    SHELF_ROOT="$ROOT" \
+      "$LUA" "$ROOT/shelf-sync.lua"
+  } >>"$LOG" 2>&1
+  sleep "$INTERVAL"
+done
