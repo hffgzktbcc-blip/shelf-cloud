@@ -249,6 +249,7 @@ export function SettingsClient({ hasApiKey, hasGoogleKey, koboSyncConfigured, pr
 function KoboSyncCard({ configured }: { configured: boolean }) {
   const [token, setToken] = useState("");
   const [saving, setSaving] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   async function createToken() {
     setSaving(true);
@@ -261,7 +262,8 @@ function KoboSyncCard({ configured }: { configured: boolean }) {
       });
       if (!res.ok) throw new Error("Could not create sync token");
       setToken(next);
-      toast.success("Kobo sync token created");
+      setConfirming(false);
+      toast.success(configured ? "New token created — update the Kobo" : "Kobo sync token created");
     } catch (e) {
       toast.error((e as Error).message);
     } finally {
@@ -275,29 +277,68 @@ function KoboSyncCard({ configured }: { configured: boolean }) {
         <CardTitle className="flex items-center gap-2 text-base">
           <Radio className="size-4" />
           Kobo wireless sync
-          {configured && <Badge variant="secondary">Configured</Badge>}
+          {configured && (
+            <Badge variant="secondary" className="gap-1">
+              <Check className="size-3" />
+              Set up
+            </Badge>
+          )}
         </CardTitle>
         <CardDescription>
-          A small Kobo-side client can send reading positions here over Wi-Fi. This does not use KOReader or modify the Kobo reader.
+          A small Kobo-side client sends reading positions here over Wi-Fi. It doesn&apos;t
+          launch KOReader or change how the Kobo reader works.
         </CardDescription>
       </CardHeader>
+
       <CardContent className="space-y-3">
         <div className="bg-muted rounded-md px-3 py-2 font-mono text-xs break-all">
           /api/kobo/sync
         </div>
-        {token && (
+
+        {token ? (
           <div className="space-y-1">
-            <Label htmlFor="kobo-token">Copy this token into the Kobo client</Label>
-            <Input id="kobo-token" readOnly value={token} />
+            <Label htmlFor="kobo-token">Copy this into shelf-sync.conf on the Kobo</Label>
+            <Input id="kobo-token" readOnly value={token} onFocus={(e) => e.target.select()} />
+            <p className="text-subtle-foreground text-xs">
+              This is the only time it&apos;s shown.
+            </p>
           </div>
+        ) : configured ? (
+          // The token deliberately isn't shown again, which reads as "it reset" — and the
+          // obvious next move, pressing the button, silently replaces it and cuts the Kobo
+          // off. Say plainly that nothing is wrong.
+          <p className="text-muted-foreground text-sm leading-relaxed">
+            A token exists and the Kobo is using it. It isn&apos;t shown again after it&apos;s
+            created, so this staying blank between restarts is normal — nothing has been lost.
+          </p>
+        ) : null}
+
+        {!configured ? (
+          <Button variant="secondary" size="sm" onClick={createToken} disabled={saving}>
+            {saving && <Loader2 className="size-4 animate-spin" />}
+            Create sync token
+          </Button>
+        ) : confirming ? (
+          <div className="border-destructive/40 space-y-2 rounded-md border p-3">
+            <p className="text-sm">
+              Replace the token? The Kobo will be turned away until you copy the new one into
+              <code className="bg-muted mx-1 rounded-md px-1">shelf-sync.conf</code>.
+            </p>
+            <div className="flex gap-2">
+              <Button variant="destructive" size="sm" onClick={createToken} disabled={saving}>
+                {saving && <Loader2 className="size-4 animate-spin" />}
+                Replace it
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setConfirming(false)}>
+                Keep the current one
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={() => setConfirming(true)}>
+            Replace token…
+          </Button>
         )}
-        <Button variant="secondary" size="sm" onClick={createToken} disabled={saving}>
-          {saving && <Loader2 className="size-4 animate-spin" />}
-          {configured ? "Rotate sync token" : "Create sync token"}
-        </Button>
-        <p className="text-subtle-foreground text-xs leading-relaxed">
-          The token is shown only when created. Rotating it disconnects any client using the old token.
-        </p>
       </CardContent>
     </Card>
   );
