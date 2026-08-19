@@ -16,9 +16,10 @@ fi
 
 PORT="${PORT:-3000}"
 URL="http://localhost:${PORT}"
+LAN_IP="$(ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || true)"
 
 if ! curl -fsS "$URL" >/dev/null 2>&1; then
-  npm run dev -- --port "$PORT" &
+  npm run dev -- --hostname 0.0.0.0 --port "$PORT" &
   SERVER_PID=$!
   trap 'kill "$SERVER_PID" 2>/dev/null || true' EXIT
 
@@ -31,4 +32,7 @@ if ! curl -fsS "$URL" >/dev/null 2>&1; then
 fi
 
 open "$URL"
+if [[ -n "$LAN_IP" ]]; then
+  echo "Phone/Kobo URL: http://${LAN_IP}:${PORT}"
+fi
 wait

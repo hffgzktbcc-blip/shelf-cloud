@@ -30,16 +30,37 @@ function loadIframeApi(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
   if (window.YT?.Player) return Promise.resolve();
   if (apiPromise) return apiPromise;
-  apiPromise = new Promise((resolve) => {
+
+  apiPromise = new Promise<void>((resolve, reject) => {
+    const timeout = window.setTimeout(
+      () => reject(new Error("YouTube player timed out")),
+      10000,
+    );
+
     const prev = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
+      window.clearTimeout(timeout);
       prev?.();
       resolve();
     };
+
     const tag = document.createElement("script");
     tag.src = "https://www.youtube.com/iframe_api";
+    tag.onerror = () => {
+      window.clearTimeout(timeout);
+      reject(new Error("YouTube script failed to load"));
+    };
     document.head.appendChild(tag);
   });
+
+  // The promise is cached, so a rejection would otherwise be permanent: every later
+  // attempt would return the same failed promise and playback would stay broken until
+  // the page was reloaded, even once the network came back. Clear it so the next play
+  // can try again.
+  apiPromise.catch(() => {
+    apiPromise = null;
+  });
+
   return apiPromise;
 }
 
@@ -90,6 +111,7 @@ type Ctx = {
   setNowPlayingLabel: (s: string | null) => void;
   /** Playback preferences, loaded once and shared by the page and the docked bar. */
   prefs: Prefs;
+  playerError: string | null;
 };
 
 const PlayerContext = createContext<Ctx | null>(null);
@@ -113,6 +135,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const trackRef = useRef<Track | null>(null);
   const creatingRef = useRef(false);
   const pendingRef = useRef<Track | null>(null);
+  const playRequestedRef = useRef(false);
+  const readyTimeoutRef = useRef<number | null>(null);
 
   const [track, setTrack] = useState<Track | null>(null);
   const [docked, setDocked] = useState(true);
@@ -129,6 +153,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
     duration: 0,
     ended: false,
   });
+  const [playerError, setPlayerError] = useState<string | null>(null);
 
   // Keep the fixed host glued to the page's anchor, or docked bottom-right.
   const reposition = useCallback(() => {
@@ -244,6 +269,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
 
   const load = useCallback((t: Track) => {
     trackRef.current = t;
+    setPlayerError(null);
     setTrack(t);
 
     loadIframeApi().then(() => {
@@ -265,6 +291,13 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       creatingRef.current = true;
+      if (readyTimeoutRef.current !== null) window.clearTimeout(readyTimeoutRef.current);
+      readyTimeoutRef.current = window.setTimeout(() => {
+        if (!playerRef.current) {
+          creatingRef.current = false;
+          setPlayerError("The embedded player did not respond on this device.");
+        }
+      }, 12000);
 
       new window.YT.Player(mountRef.current, {
         videoId: t.videoId,
@@ -282,6 +315,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             // may still be missing its methods, so this is what we keep.
             playerRef.current = e.target;
             creatingRef.current = false;
+            if (readyTimeoutRef.current !== null) {
+              window.clearTimeout(readyTimeoutRef.current);
+              readyTimeoutRef.current = null;
+            }
 
             const queued = pendingRef.current;
             pendingRef.current = null;
@@ -297,6 +334,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               ready: true,
               duration: e.target.getDuration?.() ?? 0,
             }));
+            if (playRequestedRef.current) {
+              playRequestedRef.current = false;
+              e.target.playVideo?.();
+            }
           },
           onStateChange: (e: any) => {
             const YT = window.YT.PlayerState;
@@ -309,10 +350,16 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           },
         },
       });
-    });
+    }).catch(() => setPlayerError("YouTube could not load on this device."));
   }, []);
 
-  const play = useCallback(() => playerRef.current?.playVideo?.(), []);
+  const play = useCallback(() => {
+    if (playerRef.current?.playVideo) {
+      playerRef.current.playVideo();
+    } else {
+      playRequestedRef.current = true;
+    }
+  }, []);
   const pause = useCallback(() => playerRef.current?.pauseVideo?.(), []);
   const toggle = useCallback(() => {
     if (state.playing) pause();
@@ -399,6 +446,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         nowPlayingLabel,
         setNowPlayingLabel,
         prefs,
+        playerError,
       }}
     >
       {children}

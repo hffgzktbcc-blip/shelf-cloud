@@ -70,7 +70,16 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
   // writes now, and an unset value keeps the audio-first default.
   useEffect(() => {
     const stored = window.localStorage.getItem("shelf:audioOnly.v2");
-    if (stored !== null) setAudioOnly(stored === "1");
+    const isAppleTouch =
+      /iPhone|iPad|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+    if (isAppleTouch) {
+      // iOS Safari will not reliably start a hidden cross-origin media iframe.
+      // Keep the YouTube surface visible so the first tap remains a real media gesture.
+      setAudioOnly(false);
+    } else if (stored !== null) {
+      setAudioOnly(stored === "1");
+    }
   }, []);
 
   function toggleAudioOnly() {
@@ -114,6 +123,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
     setVideoHidden,
     setNowPlayingLabel,
     prefs,
+    playerError,
   } = usePlayer();
 
   // The iframe lives above this page in the provider, so it has to be told to hide.
@@ -303,12 +313,12 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
         )}
       </div>
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
-        <div className="space-y-4">
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,1.35fr)_minmax(0,1fr)]">
+        <div className="min-w-0 space-y-4">
           <div className="bg-muted relative overflow-hidden rounded-xl ring-1 ring-white/5">
             {/* The iframe must stay mounted in audio-only mode — unmounting it stops
                 playback — so it is covered rather than removed. */}
-            <div ref={anchorRef} className="aspect-video" />
+            <div ref={anchorRef} className="aspect-video w-full max-w-full" />
 
             {audioOnly && (
               <div className="bg-background absolute inset-0 flex flex-col items-center justify-center gap-4">
@@ -411,9 +421,32 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
             <Button variant="ghost" size="icon" onClick={() => nudge(-prefs.skipBack)} aria-label={`Back ${prefs.skipBack} seconds`}>
               <RotateCcw className="size-6" />
             </Button>
-            <Button size="icon" className="size-16 rounded-full" onClick={toggle}>
-              {state.playing ? <Pause className="size-7" /> : <Play className="size-7" />}
+            <Button
+              size="icon"
+              className="size-16 rounded-full"
+              onClick={toggle}
+              aria-label={state.ready ? (state.playing ? "Pause" : "Play") : "Loading player"}
+            >
+              {playerError ? (
+                <span className="text-xs">Open</span>
+              ) : !state.ready ? (
+                <Loader2 className="size-7 animate-spin" />
+              ) : state.playing ? (
+                <Pause className="size-7" />
+              ) : (
+                <Play className="size-7" />
+              )}
             </Button>
+            {playerError && (
+              <a
+                href={`https://www.youtube.com/watch?v=${part.videoId}`}
+                target="_blank"
+                rel="noreferrer"
+                className="text-muted-foreground hover:text-foreground text-xs underline underline-offset-2"
+              >
+                YouTube
+              </a>
+            )}
             <Button variant="ghost" size="icon" onClick={() => nudge(prefs.skipForward)} aria-label={`Forward ${prefs.skipForward} seconds`}>
               <RotateCw className="size-6" />
             </Button>
