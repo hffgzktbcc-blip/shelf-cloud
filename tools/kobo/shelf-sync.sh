@@ -24,8 +24,8 @@ if [ ! -r "$CONF" ]; then
 fi
 . "$CONF"
 
-if [ -z "$SHELF_URL" ] || [ -z "$SHELF_TOKEN" ] || [ "$SHELF_TOKEN" = "PASTE_TOKEN_FROM_SHELF_SETTINGS" ]; then
-  echo "Shelf sync: set SHELF_URL and SHELF_TOKEN in shelf-sync.conf"
+if [ -z "$SHELF_TOKEN" ] || [ "$SHELF_TOKEN" = "PASTE_TOKEN_FROM_SHELF_SETTINGS" ]; then
+  echo "Shelf sync: put your token in shelf-sync.conf (Shelf > Settings creates one)"
   exit 1
 fi
 
@@ -41,7 +41,8 @@ fi
 
 {
   LUA_PATH="$LUA_PATH" LUA_CPATH="$LUA_CPATH" LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
-  SHELF_URL="$SHELF_URL" SHELF_TOKEN="$SHELF_TOKEN" \
+  SHELF_TOKEN="$SHELF_TOKEN" SHELF_HOST="$SHELF_HOST" SHELF_PORT="$SHELF_PORT" \
+  SHELF_ROOT="$ROOT" \
     "$LUA" "$ROOT/shelf-sync.lua"
 } 2>"$LOG"
 exit_code=$?

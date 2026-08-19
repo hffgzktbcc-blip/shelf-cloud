@@ -19,30 +19,138 @@ local SQLITE_OK = 0
 local SQLITE_ROW = 100
 local SQLITE_OPEN_READONLY = 0x00000001
 local sqlite = ffi.load("/mnt/onboard/.adds/koreader/libs/libsqlite3.so.0")
-local url = assert(os.getenv("SHELF_URL"), "SHELF_URL is not configured")
 local token = assert(os.getenv("SHELF_TOKEN"), "SHELF_TOKEN is not configured")
+local port = tonumber(os.getenv("SHELF_PORT") or "3000") or 3000
+local hint = os.getenv("SHELF_HOST")
+local cache_path = (os.getenv("SHELF_ROOT") or "/mnt/onboard/.adds/shelf-sync") .. "/last-host"
 
--- One reachability check before syncing anything. A DHCP lease that has moved otherwise
--- produces a failure line per book without ever naming the cause.
-do
+local socket = require("socket")
+
+local function endpoint(host)
+  return "http://" .. host .. ":" .. tostring(port) .. "/api/kobo/sync"
+end
+
+--- Does Shelf answer here, and does it accept our token?
+local function answers(host, timeout)
   local probe = {}
   local ok, code = http.request {
-    url = url,
+    url = endpoint(host),
     method = "GET",
     headers = { ["Authorization"] = "Bearer " .. token },
     sink = ltn12.sink.table(probe),
+    create = function()
+      local sock = socket.tcp()
+      sock:settimeout(timeout or 0.4)
+      return sock
+    end,
   }
-  if not ok then
-    error("cannot reach Shelf at " .. url ..
-      " — check the Mac is awake, on the same Wi-Fi, and that the address in shelf-sync.conf is current")
-  end
+  if not ok then return false end
   if tonumber(code) == 401 then
-    error("Shelf rejected the token — create a new one in Settings and update shelf-sync.conf")
+    error("Shelf rejected the token — create a new one in Settings and put it in shelf-sync.conf")
   end
-  if tonumber(code) ~= 200 then
-    error("Shelf answered " .. tostring(code) .. " at " .. url)
+  return tonumber(code) == 200
+end
+
+--- The Kobo's own address, found by asking the OS which interface would route outward.
+--- No packet is sent; a UDP "connection" only fixes the local end.
+local function own_ip()
+  local probe = socket.udp()
+  if not probe then return nil end
+  probe:setpeername("8.8.8.8", 53)
+  local ip = probe:getsockname()
+  probe:close()
+  return ip
+end
+
+local function read_cache()
+  local f = io.open(cache_path, "r")
+  if not f then return nil end
+  local host = f:read("*l")
+  f:close()
+  if host and host:match("^%d+%.%d+%.%d+%.%d+$") then return host end
+  return nil
+end
+
+local function write_cache(host)
+  local f = io.open(cache_path, "w")
+  if f then
+    f:write(host, "\n")
+    f:close()
   end
 end
+
+--- Find Shelf without being told where it is.
+---
+--- A home network hands out addresses by DHCP, so any address written down goes stale.
+--- Try what worked last time, then what the config suggests, then walk the subnet this
+--- Kobo is already on. Whatever answers is remembered for next time.
+local function discover()
+  for _, host in ipairs({ read_cache(), hint }) do
+    if host and host ~= "" and answers(host, 1.5) then return host end
+  end
+
+  local ip = own_ip()
+  if not ip then
+    error("could not work out this Kobo's own address — set SHELF_HOST in shelf-sync.conf")
+  end
+  local prefix = ip:match("^(%d+%.%d+%.%d+%.)")
+  if not prefix then
+    error("unexpected address " .. tostring(ip) .. " — set SHELF_HOST in shelf-sync.conf")
+  end
+
+  io.write("Shelf sync: looking for Shelf on ", prefix, "0/24\n")
+
+  -- Sweeping the subnet one address at a time means waiting out a timeout for every
+  -- silent host — half a minute or worse on this hardware. Instead, open a batch of
+  -- non-blocking connections at once and ask select() which of them came up.
+  local BATCH = 32
+  local last = 1
+  while last <= 254 do
+    local pending, socks = {}, {}
+    local upto = math.min(last + BATCH - 1, 254)
+
+    for n = last, upto do
+      local candidate = prefix .. tostring(n)
+      if candidate ~= ip then
+        local sock = socket.tcp()
+        if sock then
+          sock:settimeout(0)
+          sock:connect(candidate, port)
+          pending[sock] = candidate
+          socks[#socks + 1] = sock
+        end
+      end
+    end
+
+    if #socks > 0 then
+      local _, writable = socket.select(nil, socks, 0.6)
+      for _, sock in ipairs(writable or {}) do
+        local candidate = pending[sock]
+        -- Writable means the TCP handshake completed; something is listening there.
+        if candidate and sock:getpeername() then
+          for s2 in pairs(pending) do s2:close() end
+          if answers(candidate, 1.5) then
+            write_cache(candidate)
+            io.write("Shelf sync: found Shelf at ", candidate, "\n")
+            return candidate
+          end
+          pending = {}
+          break
+        end
+      end
+    end
+
+    for sock in pairs(pending) do sock:close() end
+    last = upto + 1
+  end
+
+  error("no Shelf found on " .. prefix .. "0/24 — check the Mac is awake, on this Wi-Fi, " ..
+    "and that the app is running; or set SHELF_HOST in shelf-sync.conf")
+end
+
+local host = discover()
+local url = endpoint(host)
+write_cache(host)
 
 local db_ptr = ffi.new("sqlite3*[1]")
 local rc = sqlite.sqlite3_open_v2("/mnt/onboard/.kobo/KoboReader.sqlite", db_ptr, SQLITE_OPEN_READONLY, nil)

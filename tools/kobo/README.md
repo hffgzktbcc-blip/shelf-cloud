@@ -28,33 +28,31 @@ book by hand on its page in Shelf.
 ## Install
 
 1. In Shelf, open **Settings** and create a Kobo sync token.
-2. On the Mac, get its address on your network:
-
-   ```
-   ipconfig getifaddr en0
-   ```
-
-   Use `en1` if Wi-Fi is on that interface.
-3. Copy `shelf-sync.sh`, `shelf-sync.lua` and `shelf-sync.conf` to the Kobo at
+2. Copy `shelf-sync.sh`, `shelf-sync.lua` and `shelf-sync.conf` to the Kobo at
    `.adds/shelf-sync/`.
-4. Edit **`shelf-sync.conf`** — the address from step 2 and the token from step 1. The
-   scripts themselves never need editing.
-5. Copy `nickelmenu-shelf-sync.conf` to `.adds/nm/`.
-6. Eject the Kobo cleanly and let NickelMenu reload.
-7. With the Kobo on the same Wi-Fi as the Mac, open the **Shelf sync** entry in NickelMenu.
+3. Put the token in **`shelf-sync.conf`**. That is the only required setting — the scripts
+   themselves never need editing.
+4. Copy `nickelmenu-shelf-sync.conf` to `.adds/nm/`.
+5. Eject the Kobo cleanly and let NickelMenu reload.
+6. With the Kobo on the same Wi-Fi as the Mac, open the **Shelf sync** entry in NickelMenu.
 
-The address must be the Mac's, not `localhost` — on the Kobo, `localhost` is the Kobo.
+## Finding Shelf
 
-## When it stops working
+You don't give it an address. A home network hands out addresses by DHCP, so anything
+written down goes stale — which is exactly what happened to the first version of this.
 
-Almost always the Mac's address has changed. A DHCP lease moves and the script is still
-pointing at the old one; you'll get *"cannot reach Shelf at …"* naming the address it tried.
-Re-run `ipconfig getifaddr en0` and update `shelf-sync.conf`.
+Instead the script tries, in order: the address that worked last time, the optional
+`SHELF_HOST` hint if you set one, and then a sweep of whatever network the Kobo is already
+on. The sweep opens connections in batches rather than one at a time, so it takes about a
+second rather than half a minute. Whatever answers is remembered for next time, so a lease
+that moves fixes itself on the next sync.
 
-If that keeps happening, give the Mac a fixed address in your router's DHCP reservations.
+Setting `SHELF_HOST` is optional and only skips the first sweep.
 
-Other messages:
+## When something goes wrong
 
+- *"no Shelf found on …"* — the Mac is asleep, on a different network, or the app isn't
+  running. Nothing found on the whole subnet.
 - *"Shelf rejected the token"* — create a new one in Settings and update the config.
 - *"nothing to send"* — no downloaded book has been opened on the Kobo yet.
 - Anything else is written to `last-error.log` next to the script.
