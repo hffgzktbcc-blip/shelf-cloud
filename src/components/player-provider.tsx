@@ -137,6 +137,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const pendingRef = useRef<Track | null>(null);
   const playRequestedRef = useRef(false);
   const readyTimeoutRef = useRef<number | null>(null);
+  const playerGenerationRef = useRef(0);
 
   const [track, setTrack] = useState<Track | null>(null);
   const [docked, setDocked] = useState(true);
@@ -291,10 +292,12 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         return;
       }
       creatingRef.current = true;
+      const generation = ++playerGenerationRef.current;
       if (readyTimeoutRef.current !== null) window.clearTimeout(readyTimeoutRef.current);
       readyTimeoutRef.current = window.setTimeout(() => {
-        if (!playerRef.current) {
+        if (generation === playerGenerationRef.current && !playerRef.current) {
           creatingRef.current = false;
+          mountRef.current?.replaceChildren();
           setPlayerError("The embedded player did not respond on this device.");
         }
       }, 12000);
@@ -311,6 +314,10 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         },
         events: {
           onReady: (e: any) => {
+            if (generation !== playerGenerationRef.current) {
+              e.target.destroy?.();
+              return;
+            }
             // e.target is the fully-initialised player; the constructor's return value
             // may still be missing its methods, so this is what we keep.
             playerRef.current = e.target;
