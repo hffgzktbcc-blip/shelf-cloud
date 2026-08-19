@@ -26,6 +26,8 @@ model Book {
   ebooks     Ebook[]
   bookmarks  Bookmark[]
   aiMessages AiMessage[]
+  queued     QueueItem?
+  shelves    ShelfBook[]
 }
 
 model Part {
@@ -143,4 +145,37 @@ model ListeningDay {
   /// Local calendar date, YYYY-MM-DD.
   date    String @id
   seconds Int    @default(0)
+}
+
+/// Books parked to listen to next. Stumbling on something while listening to something
+/// else is the common case, and without somewhere to put it you forget it.
+model QueueItem {
+  id      String   @id @default(cuid())
+  bookId  String   @unique
+  order   Int
+  addedAt DateTime @default(now())
+
+  book Book @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@index([order])
+}
+
+/// A named shelf. Yours to name — "Classics", "Long haul" — rather than a fixed taxonomy.
+model Shelf {
+  id        String      @id @default(cuid())
+  name      String      @unique
+  order     Int         @default(0)
+  createdAt DateTime    @default(now())
+  books     ShelfBook[]
+}
+
+model ShelfBook {
+  shelfId String
+  bookId  String
+  addedAt DateTime @default(now())
+
+  shelf Shelf @relation(fields: [shelfId], references: [id], onDelete: Cascade)
+  book  Book  @relation(fields: [bookId], references: [id], onDelete: Cascade)
+
+  @@id([shelfId, bookId])
 }
