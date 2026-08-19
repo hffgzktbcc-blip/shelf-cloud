@@ -457,7 +457,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
 
         {/* Fill the window rather than a fixed fraction of it: at 78vh the panel stopped
             short of the fold on every screen, leaving a dead band under the player. */}
-        <div className="bg-card/50 h-[calc(100vh-8.5rem)] min-h-[520px] overflow-hidden rounded-xl border">
+        <div className="bg-card/50 h-[70vh] min-h-[420px] md:h-[calc(100vh-8.5rem)] md:min-h-[520px] overflow-hidden rounded-xl border">
           <Tabs defaultValue="chapters" className="flex h-full flex-col gap-0">
             <TabsList className="m-2 grid grid-cols-3">
               <TabsTrigger value="chapters" className="gap-1.5 text-xs">

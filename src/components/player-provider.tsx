@@ -372,7 +372,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
       </div>
 
       {track && docked && (
-        <div className="animate-in slide-in-from-bottom-4 fade-in fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 shadow-2xl backdrop-blur duration-300">
+        <div className="animate-in slide-in-from-bottom-4 fade-in fixed inset-x-0 bottom-14 z-40 border-t bg-card/95 md:bottom-0 shadow-2xl backdrop-blur duration-300">
           <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5">
             {/* The jacket, which is what the video block was standing in for. */}
             <Link
