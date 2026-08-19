@@ -3,9 +3,17 @@
 A personal, local-only audiobook player for YouTube audiobooks, with chapters, transcripts,
 your own EPUBs, and bookmarks — all without leaving the app.
 
-## Running it
+## Running it on your Mac
 
-Node is installed via nvm, so load it first if your shell hasn't:
+For the most Mac-like experience, double-click `Shelf.app` and drag it to the Dock. It starts the local server in the background and opens Shelf in your browser. Logs are kept in `~/Library/Logs/Shelf/`.
+
+Keep the project folder in place after adding the app to the Dock, since the launcher starts
+the server from this folder and keeps your SQLite database and EPUB files here. On first launch,
+macOS may ask you to confirm opening the local app; choose **Open**.
+
+The simpler `Start Shelf.command` launcher is also available if you prefer to see the server terminal.
+
+Or run it from Terminal. Node is installed via nvm, so load it first if your shell hasn't:
 
 ```bash
 export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && cd ~/Documents/audiobook-player && npm run dev
@@ -109,13 +117,15 @@ The other three sources work regardless.
 
 ## Reading position from your Kobo, over WiFi
 
-Shelf speaks [KOReader](https://koreader.rocks)'s progress-sync protocol, so a Kobo can push
-where you are in the book straight into the app — no cable.
+Shelf supports the stock Kobo reader on the Clara Colour through the installed Shelf sync entry.
+Open **NickelMenu → Shelf sync** while the Kobo and Mac are on the same WiFi network. The helper
+reads the stock reader's position and sends it to the local Shelf server; KOReader is not needed.
 
-KOReader is a sideloaded reader that sits *alongside* the stock Kobo reader rather than
-replacing it, so nothing about the device changes and you can switch back any time. This syncs
-KOReader's position, not the stock reader's — stock firmware has no wireless export path, which
-is why **From Kobo** (highlights) still needs USB.
+The Mac must be running Shelf, and the Kobo helper must point at the Mac's current local address.
+If your router changes that address, update the helper's `SHELF_URL` in `.adds/shelf-sync/`.
+
+Shelf also retains a KOReader-compatible endpoint for users who already use KOReader, but it is
+not required for stock-reader sync. **From Kobo** highlight import still uses USB.
 
 **Setup**
 

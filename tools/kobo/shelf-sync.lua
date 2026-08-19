@@ -85,8 +85,20 @@ end
 --- Try what worked last time, then what the config suggests, then walk the subnet this
 --- Kobo is already on. Whatever answers is remembered for next time.
 local function discover()
-  for _, host in ipairs({ read_cache(), hint }) do
-    if host and host ~= "" and answers(host, 1.5) then return host end
+  -- Built by appending rather than as a literal: ipairs stops at the first nil, so
+  -- {read_cache(), hint} silently skips the hint whenever there is no cache yet — which
+  -- is exactly the first run, when the hint is the only thing you have.
+  local known = {}
+  local cached = read_cache()
+  if cached and cached ~= "" then known[#known + 1] = cached end
+  if hint and hint ~= "" and hint ~= cached then known[#known + 1] = hint end
+
+  for _, host in ipairs(known) do
+    io.write("Shelf sync: trying ", host, "\n")
+    if answers(host, 3) then
+      write_cache(host)
+      return host
+    end
   end
 
   local ip = own_ip()
@@ -122,21 +134,36 @@ local function discover()
       end
     end
 
-    if #socks > 0 then
-      local _, writable = socket.select(nil, socks, 0.6)
-      for _, sock in ipairs(writable or {}) do
-        local candidate = pending[sock]
-        -- Writable means the TCP handshake completed; something is listening there.
-        if candidate and sock:getpeername() then
-          for s2 in pairs(pending) do s2:close() end
-          if answers(candidate, 1.5) then
-            write_cache(candidate)
-            io.write("Shelf sync: found Shelf at ", candidate, "\n")
-            return candidate
+    -- Keep looking at this batch until the deadline rather than taking one snapshot:
+    -- a handshake that needed an ARP round trip lands late, not never.
+    local deadline = socket.gettime() + 2.5
+    while #socks > 0 and socket.gettime() < deadline do
+      local _, writable = socket.select(nil, socks, 0.4)
+      local ready = writable or {}
+      if #ready == 0 then
+        -- nothing yet; loop until the deadline
+      else
+        for _, sock in ipairs(ready) do
+          local candidate = pending[sock]
+          -- Writable alone isn't enough: a refused connection wakes select too. A peer
+          -- name means the handshake actually completed.
+          if candidate and sock:getpeername() then
+            for s2 in pairs(pending) do s2:close() end
+            if answers(candidate, 3) then
+              write_cache(candidate)
+              io.write("Shelf sync: found Shelf at ", candidate, "\n")
+              return candidate
+            end
+            pending, socks = {}, {}
+            break
           end
-          pending = {}
-          break
+          pending[sock] = nil
         end
+        local remaining = {}
+        for _, sock in ipairs(socks) do
+          if pending[sock] then remaining[#remaining + 1] = sock end
+        end
+        socks = remaining
       end
     end
 
