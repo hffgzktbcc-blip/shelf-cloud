@@ -95,7 +95,7 @@ local function discover()
 
   for _, host in ipairs(known) do
     io.write("Shelf sync: trying ", host, "\n")
-    if answers(host, 3) then
+    if answers(host, 2) then
       write_cache(host)
       return host
     end
@@ -110,6 +110,9 @@ local function discover()
     error("unexpected address " .. tostring(ip) .. " — set SHELF_HOST in shelf-sync.conf")
   end
 
+  -- NickelMenu kills the script at about nine and a half seconds, so the sweep gets a
+  -- budget rather than however long eight batches happen to take.
+  local sweep_until = socket.gettime() + 6.5
   io.write("Shelf sync: looking for Shelf on ", prefix, "0/24\n")
 
   -- Sweeping the subnet one address at a time means waiting out a timeout for every
@@ -117,7 +120,7 @@ local function discover()
   -- non-blocking connections at once and ask select() which of them came up.
   local BATCH = 32
   local last = 1
-  while last <= 254 do
+  while last <= 254 and socket.gettime() < sweep_until do
     local pending, socks = {}, {}
     local upto = math.min(last + BATCH - 1, 254)
 
@@ -136,7 +139,7 @@ local function discover()
 
     -- Keep looking at this batch until the deadline rather than taking one snapshot:
     -- a handshake that needed an ARP round trip lands late, not never.
-    local deadline = socket.gettime() + 2.5
+    local deadline = socket.gettime() + 1.0
     while #socks > 0 and socket.gettime() < deadline do
       local _, writable = socket.select(nil, socks, 0.4)
       local ready = writable or {}
@@ -149,7 +152,7 @@ local function discover()
           -- name means the handshake actually completed.
           if candidate and sock:getpeername() then
             for s2 in pairs(pending) do s2:close() end
-            if answers(candidate, 3) then
+            if answers(candidate, 2) then
               write_cache(candidate)
               io.write("Shelf sync: found Shelf at ", candidate, "\n")
               return candidate
