@@ -13,6 +13,8 @@ import Link from "next/link";
 import { Pause, Play, RotateCcw, RotateCw, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/format";
+import { Cover } from "@/components/cover";
+import { parseAudiobookTitle } from "@/lib/title";
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 declare global {
@@ -82,6 +84,9 @@ type Ctx = {
    */
   videoHidden: boolean;
   setVideoHidden: (v: boolean) => void;
+  /** Chapter line for the docked bar; the provider can't know it on its own. */
+  nowPlayingLabel: string | null;
+  setNowPlayingLabel: (s: string | null) => void;
 };
 
 const PlayerContext = createContext<Ctx | null>(null);
@@ -109,6 +114,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   const [track, setTrack] = useState<Track | null>(null);
   const [docked, setDocked] = useState(true);
   const [videoHidden, setVideoHidden] = useState(false);
+  const [nowPlayingLabel, setNowPlayingLabel] = useState<string | null>(null);
   const [rate, setRateState] = useState(1);
   const [sleepAt, setSleepAt] = useState<number | null>(null);
   const [state, setState] = useState<PlayerState>({
@@ -341,6 +347,8 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
         setAnchor,
         videoHidden,
         setVideoHidden,
+        nowPlayingLabel,
+        setNowPlayingLabel,
       }}
     >
       {children}
@@ -354,32 +362,36 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
           track ? "opacity-100" : "pointer-events-none opacity-0",
           // Audio-only: keep it playing, just stop showing it.
           videoHidden && !docked ? "pointer-events-none opacity-0" : "",
-          docked ? "right-5 bottom-5 h-[72px] w-32 rounded-l-xl" : "",
+          // Docked: the iframe keeps playing but stops being a second, competing player.
+          // It is parked off-screen rather than unmounted, since moving or removing it
+          // in the DOM reloads it and stops playback.
+          docked ? "pointer-events-none -left-[9999px] h-[72px] w-32 opacity-0" : "",
         )}
       >
         <div ref={mountRef} className="size-full" />
       </div>
 
       {track && docked && (
-        <div className="animate-in slide-in-from-bottom-4 fade-in fixed right-5 bottom-5 z-40 flex items-stretch overflow-hidden rounded-xl border bg-card/95 shadow-2xl backdrop-blur duration-300">
-          {/* Spacer matching the video host that sits on top of it. */}
-          <div className="h-[72px] w-32 shrink-0" aria-hidden />
+        <div className="animate-in slide-in-from-bottom-4 fade-in fixed inset-x-0 bottom-0 z-40 border-t bg-card/95 shadow-2xl backdrop-blur duration-300">
+          <div className="mx-auto flex max-w-7xl items-center gap-4 px-4 py-2.5">
+            {/* The jacket, which is what the video block was standing in for. */}
+            <Link
+              href={`/book/${track.bookId}/play/${track.partId}`}
+              className="shrink-0"
+              aria-label={`Back to ${track.bookTitle}`}
+            >
+              <Cover src={track.coverUrl} className="h-12 w-9 rounded ring-1 ring-white/10" />
+            </Link>
 
-          <div className="flex items-center gap-1 py-2 pr-2 pl-4">
-            <div className="mr-2 min-w-0 max-w-[200px]">
+            <div className="min-w-0 flex-1">
               <Link
                 href={`/book/${track.bookId}/play/${track.partId}`}
-                className="hover:text-primary block truncate text-sm leading-tight font-medium transition-colors"
+                className="hover:text-foreground text-foreground block truncate text-sm leading-tight font-medium transition-colors"
               >
                 {track.bookTitle}
               </Link>
-              <p className="text-muted-foreground mt-0.5 truncate text-xs tabular-nums">
-                {formatTime(state.currentTime)}
-                {state.duration > 0 && (
-                  <span className="text-subtle-foreground">
-                    {" "}/ {formatTime(state.duration)}
-                  </span>
-                )}
+              <p className="text-muted-foreground mt-0.5 truncate text-xs">
+                {nowPlayingLabel ?? parseAudiobookTitle(track.partTitle).partLabel ?? track.partTitle}
               </p>
               <div className="bg-secondary mt-1.5 h-1 w-full overflow-hidden rounded-full">
                 <div
@@ -389,37 +401,49 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
               </div>
             </div>
 
-            <button
-              onClick={() => nudge(-15)}
-              className="text-muted-foreground hover:text-foreground hover:bg-accent grid size-9 place-items-center rounded-md transition-colors"
-              aria-label="Back 15 seconds"
-            >
-              <RotateCcw className="size-4" />
-            </button>
-            <button
-              onClick={toggle}
-              className="bg-primary text-primary-foreground grid size-10 place-items-center rounded-full transition-transform hover:scale-105 active:scale-95"
-              aria-label={state.playing ? "Pause" : "Play"}
-            >
-              {state.playing ? <Pause className="size-4" /> : <Play className="size-4" />}
-            </button>
-            <button
-              onClick={() => nudge(30)}
-              className="text-muted-foreground hover:text-foreground hover:bg-accent grid size-9 place-items-center rounded-md transition-colors"
-              aria-label="Forward 30 seconds"
-            >
-              <RotateCw className="size-4" />
-            </button>
-            <button
-              onClick={stop}
-              className="text-muted-foreground hover:text-foreground hover:bg-accent ml-1 grid size-8 place-items-center rounded-md transition-colors"
-              aria-label="Close player"
-            >
-              <X className="size-3.5" />
-            </button>
+            <p className="text-muted-foreground hidden shrink-0 text-xs tabular-nums sm:block">
+              <span className="text-position">{formatTime(state.currentTime)}</span>
+              {state.duration > 0 && (
+                <span className="text-subtle-foreground"> / {formatTime(state.duration)}</span>
+              )}
+            </p>
+
+            <div className="flex shrink-0 items-center gap-1">
+              <button
+                onClick={() => nudge(-15)}
+                className="text-muted-foreground hover:text-foreground hover:bg-accent grid size-9 place-items-center rounded-md transition-colors"
+                aria-label="Back 15 seconds"
+              >
+                <RotateCcw className="size-4" />
+              </button>
+              <button
+                onClick={toggle}
+                className="bg-primary text-primary-foreground grid size-10 place-items-center rounded-full transition-transform hover:scale-105 active:scale-95"
+                aria-label={state.playing ? "Pause" : "Play"}
+              >
+                {state.playing ? <Pause className="size-4" /> : <Play className="size-4" />}
+              </button>
+              <button
+                onClick={() => nudge(30)}
+                className="text-muted-foreground hover:text-foreground hover:bg-accent grid size-9 place-items-center rounded-md transition-colors"
+                aria-label="Forward 30 seconds"
+              >
+                <RotateCw className="size-4" />
+              </button>
+              <button
+                onClick={stop}
+                className="text-muted-foreground hover:text-foreground hover:bg-accent ml-1 grid size-9 place-items-center rounded-md transition-colors"
+                aria-label="Close player"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
           </div>
         </div>
       )}
+
+      {/* The bar is fixed, so page content needs somewhere to end. */}
+      {track && docked && <div className="h-[76px]" aria-hidden />}
 
     </PlayerContext.Provider>
   );

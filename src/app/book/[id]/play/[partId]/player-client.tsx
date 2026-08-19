@@ -112,6 +112,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
     load,
     setAnchor,
     setVideoHidden,
+    setNowPlayingLabel,
   } = usePlayer();
 
   // The iframe lives above this page in the provider, so it has to be told to hide.
@@ -151,6 +152,12 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
     }
     return found;
   }, [chapters, state.currentTime]);
+
+  // The docked bar can't know which chapter is playing, so hand it over.
+  useEffect(() => {
+    setNowPlayingLabel(activeChapter?.title ?? null);
+    return () => setNowPlayingLabel(null);
+  }, [activeChapter?.title, setNowPlayingLabel]);
 
   const saveProgress = useCallback(
     (position: number, completed = false) => {
