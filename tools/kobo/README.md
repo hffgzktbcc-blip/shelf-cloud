@@ -77,6 +77,14 @@ either side backward.
 Use **Stop Shelf automatic sync** in NickelMenu when you want to stop the background helper
 and conserve battery.
 
+Two more NickelMenu items are available for one-off use, without starting or stopping the
+background helper:
+
+- **Shelf sync now** — a single immediate sync, useful right after changing a book's
+  position and not wanting to wait for the next poll.
+- **Shelf last sync log** — shows the last 20 lines of `last-error.log`, whether or not the
+  automatic sync is running.
+
 ## When something goes wrong
 
 - *"no Shelf found on …"* — the Mac is asleep, on a different network, or the app isn't

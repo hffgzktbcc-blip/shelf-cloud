@@ -125,8 +125,18 @@ export async function putProgress(p: Progress): Promise<void> {
   });
 }
 
-/** Finds the Shelf reading percentage that corresponds to the current audio position. */
-export async function shelfPercentage(document: string): Promise<number | null> {
+export type ShelfPosition = {
+  percentage: number;
+  blockIndex: number;
+  ebookId: string;
+  filePath: string;
+};
+
+/**
+ * Finds the Shelf reading percentage that corresponds to the current audio position, plus
+ * the block it landed on so a caller can resolve an actual chapter to bookmark against.
+ */
+export async function shelfPosition(document: string): Promise<ShelfPosition | null> {
   const ebooks = await prisma.ebook.findMany({
     include: {
       book: {
@@ -143,7 +153,7 @@ export async function shelfPercentage(document: string): Promise<number | null> 
     if (!candidate.filePath) return false;
     return documentHashes(path.join(STORAGE_DIR, candidate.filePath), candidate.fileName).includes(document);
   });
-  if (!ebook || !ebook.book.lastPartId) return null;
+  if (!ebook || !ebook.book.lastPartId || !ebook.filePath) return null;
 
   const part = ebook.book.parts.find((candidate) => candidate.id === ebook.book.lastPartId);
   if (!part || !ebook.blocksJson) return null;
@@ -166,7 +176,14 @@ export async function shelfPercentage(document: string): Promise<number | null> 
   if (total === 0) return null;
   const seen = blocks.slice(0, blocks.findIndex((block) => block.index >= blockIndex) + 1)
     .reduce((sum, block) => sum + block.text.length, 0);
-  return Math.max(0, Math.min(1, seen / total));
+  const percentage = Math.max(0, Math.min(1, seen / total));
+  return { percentage, blockIndex, ebookId: ebook.id, filePath: ebook.filePath };
+}
+
+/** Finds the Shelf reading percentage that corresponds to the current audio position. */
+export async function shelfPercentage(document: string): Promise<number | null> {
+  const position = await shelfPosition(document);
+  return position ? position.percentage : null;
 }
 
 export async function getProgress(document: string): Promise<Progress | null> {

@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import path from "node:path";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
-import { md5, putProgress, shelfPercentage, type Progress } from "@/lib/kosync";
+import { md5, putProgress, shelfPosition, type Progress } from "@/lib/kosync";
+import { chapterHrefForBlock } from "@/lib/kobo-bookmark";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,11 +54,20 @@ export async function POST(req: Request) {
     timestamp: Math.floor(Date.now() / 1000),
   };
   await putProgress(progress);
-  const shelf = await shelfPercentage(progress.document);
+  const shelf = await shelfPosition(progress.document);
+  const shelfPct = shelf?.percentage ?? null;
+  // Only follow Shelf's own mapped position when it's at least as far along as what the
+  // Kobo just reported — an arbitrary Kobo-reported percentage has no block to bookmark.
+  const chapterHref =
+    shelf && shelfPct !== null && shelfPct >= progress.percentage
+      ? await chapterHrefForBlock(shelf.ebookId, shelf.filePath, shelf.blockIndex)
+      : null;
+
   return NextResponse.json({
     ok: true,
     document: progress.document,
     timestamp: progress.timestamp,
-    shelfPercentage: shelf === null ? null : Math.max(shelf, progress.percentage),
+    shelfPercentage: shelfPct === null ? null : Math.max(shelfPct, progress.percentage),
+    ...(chapterHref ? { chapterHref } : {}),
   });
 }

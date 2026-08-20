@@ -16,6 +16,8 @@ export type EpubBlock = {
   text: string;
   /** Index into `chapters`, for the running header and the contents list. */
   chapter: number;
+  /** The spine file this block came from, e.g. for jumping a Kobo bookmark to it. */
+  href: string;
 };
 
 export type EpubChapter = { index: number; title: string; firstBlock: number };
@@ -135,6 +137,7 @@ export async function parseEpub(data: Buffer): Promise<ParsedEpub> {
         kind: /^h[1-6]$/.test(tag) ? "heading" : "para",
         text,
         chapter: chapters.length - 1,
+        href,
       });
     }
   }

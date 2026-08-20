@@ -52,9 +52,28 @@ if [ "${1:-}" = "stop" ]; then
   exit 0
 fi
 
+# A single immediate pass, for "sync now" — doesn't touch the background loop or its lock.
+if [ "${1:-}" = "once" ]; then
+  LUA_PATH="$LUA_PATH" LUA_CPATH="$LUA_CPATH" LD_LIBRARY_PATH="$LD_LIBRARY_PATH" \
+  SHELF_TOKEN="$SHELF_TOKEN" SHELF_HOST="$SHELF_HOST" SHELF_PORT="$SHELF_PORT" \
+  SHELF_ROOT="$ROOT" \
+    "$LUA" "$ROOT/shelf-sync.lua" 2>&1
+  exit $?
+fi
+
 if ! mkdir "$LOCK" 2>/dev/null; then
-  echo "Shelf sync: automatic sync is already running"
-  exit 0
+  # A lock can outlive its process — a sleeping/disconnected device doesn't run the
+  # trap that would normally clean this up. Only refuse to start if that pid is real.
+  old_pid="$(cat "$PIDFILE" 2>/dev/null)"
+  if [ -n "$old_pid" ] && kill -0 "$old_pid" 2>/dev/null; then
+    echo "Shelf sync: automatic sync is already running"
+    exit 0
+  fi
+  rm -rf "$LOCK"
+  if ! mkdir "$LOCK" 2>/dev/null; then
+    echo "Shelf sync: automatic sync is already running"
+    exit 0
+  fi
 fi
 trap 'rmdir "$LOCK" 2>/dev/null' EXIT INT TERM
 echo "$$" >"$PIDFILE"

@@ -259,6 +259,23 @@ for i = 1, #documents do
         sqlite.sqlite3_finalize(update_ptr[0])
       end
     end
+
+    -- ___PercentRead is only the cosmetic figure on the library tile; the reader itself
+    -- navigates to ChapterIDBookmarked and overwrites the percentage from there on open.
+    -- Without also moving this, opening the book snaps back to wherever you last actually
+    -- read on the device.
+    local chapter_href = response_body:match('"chapterHref"%s*:%s*"(.-)"')
+    if chapter_href and chapter_href ~= "" then
+      local bookmark_ptr = ffi.new("sqlite3_stmt*[1]")
+      local bookmark_sql = "update content set ChapterIDBookmarked = ? where ContentID = ?"
+      local bookmark_rc = sqlite.sqlite3_prepare_v2(db, bookmark_sql, -1, bookmark_ptr, nil)
+      if bookmark_rc == SQLITE_OK then
+        sqlite.sqlite3_bind_text(bookmark_ptr[0], 1, chapter_href, -1, SQLITE_TRANSIENT)
+        sqlite.sqlite3_bind_text(bookmark_ptr[0], 2, documents[i], -1, SQLITE_TRANSIENT)
+        sqlite.sqlite3_step(bookmark_ptr[0])
+        sqlite.sqlite3_finalize(bookmark_ptr[0])
+      end
+    end
   else
     io.stderr:write("Shelf sync failed for ", documents[i], " (", tostring(code), ")\n")
   end
