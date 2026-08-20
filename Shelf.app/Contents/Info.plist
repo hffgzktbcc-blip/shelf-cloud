@@ -16,5 +16,16 @@
   <string>1.0</string>
   <key>CFBundleShortVersionString</key>
   <string>1.0</string>
+  <key>CFBundleIconFile</key>
+  <string>Shelf</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>12.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+  </dict>
 </dict>
 </plist>
