@@ -18,6 +18,8 @@ export type Prefs = {
   fadeOnSleep: boolean;
   /** Roll straight into the next part when one ends. */
   autoPlayNext: boolean;
+  /** "bronze" puts the warm brass back on buttons and controls, as it was originally. */
+  accent: "neutral" | "bronze";
 };
 
 export const DEFAULT_PREFS: Prefs = {
@@ -28,6 +30,7 @@ export const DEFAULT_PREFS: Prefs = {
   sleepDefaultMin: 30,
   fadeOnSleep: true,
   autoPlayNext: false,
+  accent: "bronze",
 };
 
 export const PREFS_KEY = "playbackPrefs";
@@ -45,6 +48,7 @@ export function parsePrefs(raw: string | null | undefined): Prefs {
       sleepDefaultMin: num(parsed.sleepDefaultMin, DEFAULT_PREFS.sleepDefaultMin, 5, 240),
       fadeOnSleep: typeof parsed.fadeOnSleep === "boolean" ? parsed.fadeOnSleep : true,
       autoPlayNext: typeof parsed.autoPlayNext === "boolean" ? parsed.autoPlayNext : false,
+      accent: parsed.accent === "neutral" ? "neutral" : "bronze",
     };
   } catch {
     return { ...DEFAULT_PREFS };

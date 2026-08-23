@@ -394,6 +394,29 @@ function PlaybackCard({ initial }: { initial: Prefs }) {
       </CardHeader>
 
       <CardContent className="space-y-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm font-medium">Accent</p>
+            <p className="text-subtle-foreground text-xs">
+              Bronze puts the warm brass back on buttons and controls
+            </p>
+          </div>
+          <div className="bg-secondary flex shrink-0 rounded-md p-0.5">
+            {(["bronze", "neutral"] as const).map((a) => (
+              <button
+                key={a}
+                onClick={() => update("accent", a)}
+                className={cn(
+                  "rounded-md px-2.5 py-1 text-xs capitalize transition-colors",
+                  a === prefs.accent ? "bg-background text-foreground" : "text-muted-foreground",
+                )}
+              >
+                {a}
+              </button>
+            ))}
+          </div>
+        </div>
+
         <Choice
           label="Skip back"
           hint="The left arrow on the transport, and ←"

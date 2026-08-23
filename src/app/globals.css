@@ -150,3 +150,17 @@
     @apply font-sans;
   }
 }
+
+/* The bronze look, kept as an option rather than a version you have to go back to.
+   Buttons and controls take the same warm brass the accent uses. Only --primary moves;
+   --position is brass in both, so progress and the active chapter never change meaning. */
+:root[data-accent="bronze"] {
+  --primary: oklch(0.62 0.12 66);
+  --primary-foreground: oklch(0.99 0.01 75);
+}
+
+.dark[data-accent="bronze"],
+:root[data-accent="bronze"] .dark {
+  --primary: oklch(0.80 0.115 75);
+  --primary-foreground: oklch(0.22 0.03 75);
+}

@@ -4,6 +4,8 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
 import { SiteNav } from "@/components/site-nav";
 import { PlayerProvider } from "@/components/player-provider";
+import { prisma } from "@/lib/db";
+import { PREFS_KEY, parsePrefs } from "@/lib/prefs";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -20,10 +22,16 @@ export const metadata: Metadata = {
   description: "A personal audiobook player for YouTube audiobooks and your own ebooks.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  // Read on the server so the accent is already right in the first paint — set it in the
+  // browser instead and every page load starts neutral and flicks to bronze.
+  const prefsRow = await prisma.setting.findUnique({ where: { key: PREFS_KEY } });
+  const { accent } = parsePrefs(prefsRow?.value);
+
   return (
     <html
       lang="en"
+      data-accent={accent}
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased dark`}
       suppressHydrationWarning
     >
