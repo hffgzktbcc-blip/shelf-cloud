@@ -11,6 +11,7 @@ import {
   FileText,
   KeyRound,
   Loader2,
+  LogOut,
   Radio,
   SlidersHorizontal,
   Sparkles,
@@ -63,10 +64,15 @@ export function SettingsClient({ hasApiKey, hasGoogleKey, koboSyncConfigured, pr
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-8">
-      <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
-      <p className="text-muted-foreground mt-1 text-sm">
-        Everything is stored locally on this machine.
-      </p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h1 className="text-3xl font-semibold tracking-tight">Settings</h1>
+          <p className="text-muted-foreground mt-1 text-sm">
+            Everything is stored in your database, reachable from anywhere.
+          </p>
+        </div>
+        <SignOutButton />
+      </div>
 
       <PlaybackCard initial={initialPrefs} />
 
@@ -244,6 +250,29 @@ export function SettingsClient({ hasApiKey, hasGoogleKey, koboSyncConfigured, pr
         </CardContent>
       </Card>
     </div>
+  );
+}
+
+function SignOutButton() {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+
+  async function signOut() {
+    setBusy(true);
+    try {
+      await fetch("/api/logout", { method: "POST" });
+      router.replace("/login");
+      router.refresh();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <Button variant="ghost" size="sm" onClick={signOut} disabled={busy} className="shrink-0">
+      {busy ? <Loader2 className="size-3.5 animate-spin" /> : <LogOut className="size-3.5" />}
+      Sign out
+    </Button>
   );
 }
 

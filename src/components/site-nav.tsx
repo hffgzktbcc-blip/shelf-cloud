@@ -35,6 +35,7 @@ function isActive(pathname: string, href: string) {
  */
 export function SiteNav() {
   const pathname = usePathname();
+  if (pathname === "/login") return null;
 
   return (
     <>
