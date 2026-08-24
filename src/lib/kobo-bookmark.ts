@@ -1,30 +1,23 @@
-import fs from "node:fs";
-import path from "node:path";
 import { parseEpub } from "@/lib/epub-parse";
-
-const STORAGE_DIR = path.join(process.cwd(), "storage", "ebooks");
+import { getEbook } from "@/lib/storage";
 
 /**
  * Re-parsing a whole EPUB on every sync tick would be wasteful, so the per-block href list
- * is cached per ebook and only recomputed if the file has changed since.
+ * is cached per ebook. Ebook files are immutable after upload (a re-upload always gets a
+ * fresh key, never overwrites), so the cache needs no invalidation check.
  */
-const cache = new Map<string, { mtimeMs: number; hrefs: string[] }>();
+const cache = new Map<string, string[]>();
 
 async function hrefsForEbook(ebookId: string, filePath: string): Promise<string[] | null> {
-  const full = path.join(STORAGE_DIR, filePath);
-  let mtimeMs: number;
-  try {
-    mtimeMs = fs.statSync(full).mtimeMs;
-  } catch {
-    return null;
-  }
-
   const cached = cache.get(ebookId);
-  if (cached && cached.mtimeMs === mtimeMs) return cached.hrefs;
+  if (cached) return cached;
 
-  const parsed = await parseEpub(fs.readFileSync(full));
+  const data = await getEbook(filePath);
+  if (!data) return null;
+
+  const parsed = await parseEpub(data);
   const hrefs = parsed.blocks.map((b) => b.href);
-  cache.set(ebookId, { mtimeMs, hrefs });
+  cache.set(ebookId, hrefs);
   return hrefs;
 }
 

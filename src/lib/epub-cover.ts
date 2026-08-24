@@ -1,4 +1,3 @@
-import fs from "node:fs/promises";
 import path from "node:path";
 import JSZip from "jszip";
 
@@ -20,8 +19,8 @@ const MIME: Record<string, string> = {
  * EPUB 2 declares it as `<meta name="cover" content="{manifest-id}">`; EPUB 3 uses
  * `properties="cover-image"` on the manifest item. Files in the wild do either, or neither.
  */
-export async function extractEpubCover(filePath: string): Promise<EpubCover | null> {
-  const zip = await JSZip.loadAsync(await fs.readFile(filePath));
+export async function extractEpubCover(data: Buffer): Promise<EpubCover | null> {
+  const zip = await JSZip.loadAsync(data);
 
   const opfName = Object.keys(zip.files).find((n) => n.endsWith(".opf"));
   if (!opfName) return null;

@@ -18,53 +18,6 @@ export function lookback(cues: TranscriptCue[], now: number, windowSec: number):
   return cues.filter((c) => c.start <= now && c.start >= from);
 }
 
-function stamp(secs: number): string {
-  const h = Math.floor(secs / 3600);
-  const m = Math.floor((secs % 3600) / 60);
-  const s = Math.floor(secs % 60);
-  return h > 0
-    ? `${h}:${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`
-    : `${m}:${String(s).padStart(2, "0")}`;
-}
-
-export function buildPrompt(opts: {
-  bookTitle: string;
-  author: string | null;
-  chapterTitle: string | null;
-  now: number;
-  recent: TranscriptCue[];
-  earlier: TranscriptCue[];
-  question: string;
-}): { system: string; prompt: string } {
-  const { bookTitle, author, chapterTitle, now, recent, earlier, question } = opts;
-
-  const system = `You help someone part-way through an audiobook. They can pause and ask about what they just heard.
-
-The transcript is a machine transcription of narration: expect mangled names and missing punctuation. Read through those errors instead of remarking on them.
-
-The most important rule: never reveal anything the listener has not yet heard. The excerpt ends exactly at their position — answer only from it.
-- If you recognise the book, ignore what you know. Do not use outside knowledge of the plot or how anything turns out.
-- Do not foreshadow or hint that something matters later.
-- If the answer is not in the excerpt, say it hasn't come up yet. That is a useful answer.
-
-Reply in two or three short paragraphs of plain prose, past tense, like reminding a friend. No headings, no lists, no preamble.`;
-
-  const parts: string[] = [
-    `Book: ${bookTitle}${author ? ` by ${author}` : ""}`,
-    chapterTitle ? `Chapter: ${chapterTitle}` : "",
-    `Listener is at: ${stamp(now)}`,
-    "",
-  ].filter(Boolean);
-
-  if (earlier.length > 0) {
-    parts.push("Earlier context:", earlier.map((c) => c.text).join(" "), "");
-  }
-  parts.push("Just heard:", recent.map((c) => c.text).join(" "), "");
-  parts.push(`Question: ${question}`);
-
-  return { system, prompt: parts.join("\n") };
-}
-
 /**
  * Model-free fallback: picks the most representative sentences from the window by word
  * overlap. Not a summary in any clever sense, but it answers "what just happened" instantly,

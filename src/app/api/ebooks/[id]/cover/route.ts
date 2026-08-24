@@ -1,11 +1,9 @@
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { extractEpubCover } from "@/lib/epub-cover";
+import { getEbook } from "@/lib/storage";
 
 export const runtime = "nodejs";
-
-const STORAGE_DIR = path.join(process.cwd(), "storage", "ebooks");
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -15,7 +13,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   let cover;
   try {
-    cover = await extractEpubCover(path.join(STORAGE_DIR, ebook.filePath));
+    const data = await getEbook(ebook.filePath);
+    cover = data ? await extractEpubCover(data) : null;
   } catch (e) {
     // A read or zip failure is a different problem from "this EPUB has no cover".
     return NextResponse.json({ error: `Could not read the EPUB: ${(e as Error).message}` }, { status: 500 });

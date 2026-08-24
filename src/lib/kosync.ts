@@ -1,7 +1,7 @@
 import crypto from "node:crypto";
-import fs from "node:fs";
 import path from "node:path";
 import { prisma } from "@/lib/db";
+import { getEbook } from "@/lib/storage";
 
 /**
  * KOReader's progress-sync protocol, as spoken by the `sync.koreader.rocks` server.
@@ -24,8 +24,6 @@ export type Progress = {
   timestamp: number;
 };
 
-const STORAGE_DIR = path.join(process.cwd(), "storage", "ebooks");
-
 const USER_KEY = "kosync.user";
 const progressKey = (doc: string) => `kosync.progress.${doc}`;
 const bindKey = (doc: string) => `kosync.bind.${doc}`;
@@ -42,32 +40,26 @@ export function md5(s: string | Buffer): string {
  * builds, so several plausible variants are returned and any match is accepted. If none
  * match, the document can still be bound to a book by hand, once.
  */
-export function documentHashes(filePath: string, fileName: string): string[] {
+export function documentHashes(data: Buffer | null, fileName: string): string[] {
   const out = new Set<string>();
   for (const name of nameVariants(fileName)) out.add(md5(name));
 
-  try {
-    const fd = fs.openSync(filePath, "r");
-    const size = fs.fstatSync(fd).size;
-
+  // A missing or unreadable file just means no content hashes; the name hashes still work.
+  if (data) {
+    const size = data.length;
     for (const start of [-1, 0]) {
       const h = crypto.createHash("md5");
       let any = false;
       for (let i = start; i <= 10; i++) {
         const offset = i < 0 ? 1024 >> -(2 * i) : 1024 << (2 * i);
         if (offset >= size) break;
-        const buf = Buffer.alloc(1024);
-        const read = fs.readSync(fd, buf, 0, 1024, offset);
-        if (read <= 0) break;
-        h.update(buf.subarray(0, read));
+        const buf = data.subarray(offset, offset + 1024);
+        if (buf.length === 0) break;
+        h.update(buf);
         any = true;
       }
       if (any) out.add(h.digest("hex"));
     }
-
-    fs.closeSync(fd);
-  } catch {
-    // A missing or unreadable file just means no content hashes; the name hashes still work.
   }
 
   return [...out];
@@ -149,10 +141,15 @@ export async function shelfPosition(document: string): Promise<ShelfPosition | n
     },
   });
 
-  const ebook = ebooks.find((candidate) => {
-    if (!candidate.filePath) return false;
-    return documentHashes(path.join(STORAGE_DIR, candidate.filePath), candidate.fileName).includes(document);
-  });
+  let ebook: (typeof ebooks)[number] | undefined;
+  for (const candidate of ebooks) {
+    if (!candidate.filePath) continue;
+    const data = await getEbook(candidate.filePath);
+    if (documentHashes(data, candidate.fileName).includes(document)) {
+      ebook = candidate;
+      break;
+    }
+  }
   if (!ebook || !ebook.book.lastPartId || !ebook.filePath) return null;
 
   const part = ebook.book.parts.find((candidate) => candidate.id === ebook.book.lastPartId);

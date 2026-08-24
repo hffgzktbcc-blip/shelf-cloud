@@ -1,4 +1,3 @@
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
@@ -11,11 +10,10 @@ import {
   timeAtBlock,
   type ResolvedPosition,
 } from "@/lib/kosync";
+import { getEbook } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const STORAGE_DIR = path.join(process.cwd(), "storage", "ebooks");
 
 /**
  * Turns whatever KOReader pushed into something the player can act on: which book it was,
@@ -46,7 +44,8 @@ export async function GET(req: Request) {
   const byHash = new Map<string, (typeof ebooks)[number][]>();
   for (const e of ebooks) {
     if (!e.filePath) continue;
-    for (const h of documentHashes(path.join(STORAGE_DIR, e.filePath), e.fileName)) {
+    const data = await getEbook(e.filePath);
+    for (const h of documentHashes(data, e.fileName)) {
       const bucket = byHash.get(h);
       if (bucket) bucket.push(e);
       else byHash.set(h, [e]);

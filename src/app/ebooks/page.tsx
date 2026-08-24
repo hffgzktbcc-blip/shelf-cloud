@@ -1,12 +1,9 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import { prisma } from "@/lib/db";
+import { statEbook } from "@/lib/storage";
 import { EbooksClient, type EbookRow } from "./ebooks-client";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Ebooks — Shelf" };
-
-const STORAGE_DIR = path.join(process.cwd(), "storage", "ebooks");
 
 export default async function EbooksPage() {
   const ebooks = await prisma.ebook.findMany({
@@ -28,10 +25,7 @@ export default async function EbooksPage() {
     ebooks.map(async (e) => {
       let bytes: number | null = null;
       if (e.filePath) {
-        bytes = await fs
-          .stat(path.join(STORAGE_DIR, e.filePath))
-          .then((s) => s.size)
-          .catch(() => null);
+        bytes = await statEbook(e.filePath).then((s) => s?.size ?? null);
       }
 
       const blocks = e.blocksJson

@@ -1,13 +1,11 @@
 import { NextResponse } from "next/server";
-import fs from "node:fs/promises";
-import path from "node:path";
 import { prisma } from "@/lib/db";
 import { parseEpub } from "@/lib/epub-parse";
+import { getEbook } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const STORAGE_DIR = path.join(process.cwd(), "storage", "ebooks");
+export const maxDuration = 60;
 
 /** Parses on first request and caches on the row — reparsing 7,600 blocks per open is wasteful. */
 export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }) {
@@ -25,9 +23,7 @@ export async function GET(req: Request, ctx: { params: Promise<{ id: string }> }
     });
   }
 
-  const file = await fs
-    .readFile(path.join(STORAGE_DIR, path.basename(ebook.filePath)))
-    .catch(() => null);
+  const file = await getEbook(ebook.filePath);
   if (!file) return NextResponse.json({ error: "File missing on disk" }, { status: 404 });
 
   try {

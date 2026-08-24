@@ -1,22 +1,19 @@
 # Shelf — YouTube Audiobook Player
 
-A personal, local-only audiobook player for YouTube audiobooks, with chapters, transcripts,
-your own EPUBs, and bookmarks — all without leaving the app.
+A personal audiobook player for YouTube audiobooks, with chapters, transcripts, your own
+EPUBs, and bookmarks — all without leaving the app. This fork runs as a hosted Vercel
+deployment (Postgres for data, Vercel Blob for EPUB files) instead of a local Mac server, so
+it's reachable from a phone with the Mac off.
 
-## Running it on your Mac
+## Running it
 
-For the most Mac-like experience, double-click `Shelf.app` and drag it to the Dock. It starts the local server in the background and opens Shelf in your browser. Logs are kept in `~/Library/Logs/Shelf/`.
-
-Keep the project folder in place after adding the app to the Dock, since the launcher starts
-the server from this folder and keeps your SQLite database and EPUB files here. On first launch,
-macOS may ask you to confirm opening the local app; choose **Open**.
-
-The simpler `Start Shelf.command` launcher is also available if you prefer to see the server terminal.
-
-Or run it from Terminal. Node is installed via nvm, so load it first if your shell hasn't:
+Deployed on Vercel from this repo's `main`/`covers-kobo-sync-and-contrast` branch — pushes
+build and deploy automatically. To run it locally against the same hosted database and
+storage, set `DATABASE_URL` (Supabase Postgres, pooled connection string) and
+`BLOB_READ_WRITE_TOKEN` in `.env`, then:
 
 ```bash
-export NVM_DIR="$HOME/.nvm" && . "$NVM_DIR/nvm.sh" && cd ~/Documents/audiobook-player && npm run dev
+npm run dev
 ```
 
 Then open http://localhost:3000
@@ -47,26 +44,15 @@ Then open http://localhost:3000
   YouTube for the rest of the book and the same narrator's other uploads.
 - **Buy links** — search links for Audible, Amazon, Kobo, Libro.fm, Bookshop.org, Google Books.
 
-## Recap (local, free)
+## Recap (free, no model)
 
-The **Recap** tab answers "what just happened?" from the narration you've already heard.
-It never sends anything to a paid API.
-
-- With [Ollama](https://ollama.com/download) running, it uses a local model — `llama3.2:3b`
-  by default. Install once, then `ollama pull llama3.2:3b`. Nothing to configure; the app
-  detects it on the next page load.
-- Without Ollama it falls back to sentence extraction: the most representative sentences
-  from the last few minutes, ranked by keyword weight. Instant, and it cannot invent
-  anything that wasn't said.
+The **Recap** tab answers "what just happened?" from the narration you've already heard. It
+never sends anything to a paid API and needs no model: it picks the most representative
+sentences from the last few minutes, ranked by keyword weight. Instant, and it cannot invent
+anything that wasn't said.
 
 **Spoiler safety:** the context window is strictly backwards-looking — only narration at or
-before your current position, and chapter titles ahead of you are filtered out too. The
-prompt also tells the model to ignore any outside knowledge of the book. The hard window is
-the real protection; the prompt is the weaker half, so treat a well-known book with more
-suspicion than an obscure one.
-
-First call after a restart takes ~30s while the model loads into memory; subsequent calls
-are ~4s.
+before your current position is ever used.
 
 ## Keyboard shortcuts
 
@@ -119,27 +105,25 @@ The other three sources work regardless.
 
 Shelf supports the stock Kobo reader on the Clara Colour through the installed Shelf sync entry.
 USB is only needed once to install the helper files. After that, open **NickelMenu → Shelf sync**
-while the Kobo and Mac are on the same WiFi network: the helper reads the stock reader's position,
-sends it to Shelf, and writes any newer Shelf position back to the Kobo. KOReader is not needed
-for the stock-reader flow.
+while the Kobo has WiFi: the helper reads the stock reader's position, sends it to Shelf, and
+writes any newer Shelf position back to the Kobo. KOReader is not needed for the stock-reader flow.
 
-The Mac must be running Shelf, and the Kobo helper must point at the Mac's current local address.
-If your router changes that address, update the helper's `SHELF_URL` in `.adds/shelf-sync/`.
+The Kobo helper must point at this deployment's URL, not a Mac's local address — update the
+helper's `SHELF_URL` in `.adds/shelf-sync/` to the Vercel domain.
 
 Stock Kobo firmware does not expose a network listener for Shelf to wake or push to on its own, so
 the sync must currently be started from the Kobo. It does not require plugging the Kobo in again.
 
 Shelf also retains a KOReader-compatible endpoint for users who already use KOReader, but it is
-not required for stock-reader sync. **From Kobo** highlight import still uses USB.
+not required for stock-reader sync.
 
 **Setup**
 
 1. Install KOReader on the Kobo.
-2. On the Mac, find your local address: `ipconfig getifaddr en0`.
-3. In KOReader: **Tools → Progress sync → Custom sync server**, and enter
-   `http://<that-address>:3000/api/kosync`.
-4. Register an account there (it's stored only in this app's database, password hashed).
-5. Set **Document matching method** to *filename*.
+2. In KOReader: **Tools → Progress sync → Custom sync server**, and enter
+   `https://<this-deployment>/api/kosync`.
+3. Register an account there (it's stored only in this app's database, password hashed).
+4. Set **Document matching method** to *filename*.
 
 Filename matching handles the Kobo's own renaming: sideloaded books get converted to
 `.kepub.epub` and lowercased, so `Light_Bringer.epub` on your Mac is
@@ -162,8 +146,8 @@ than sending you to 0:00.
   re-hosted, so this stays within YouTube's terms.
 - Transcripts depend on the uploader enabling captions; many audiobook channels do, some don't.
   The app degrades gracefully when they're missing.
-- Data lives in `dev.db` (SQLite) and uploaded EPUBs in `storage/ebooks/`.
+- Data lives in Postgres (Supabase) and uploaded EPUBs in Vercel Blob.
 
 ## Stack
 
-Next.js 16 · React · Tailwind + shadcn/ui · Prisma 7 + SQLite · epub.js
+Next.js 16 · React · Tailwind + shadcn/ui · Prisma 7 + Postgres · Vercel Blob · epub.js

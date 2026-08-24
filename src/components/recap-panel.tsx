@@ -1,11 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { Cpu, Loader2, Send, Sparkles, Trash2 } from "lucide-react";
+import { useState } from "react";
+import { Loader2, Send, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
 import { formatTime } from "@/lib/format";
 import { PRESETS } from "@/lib/recap";
 
@@ -30,29 +29,16 @@ export function RecapPanel({
   const [entries, setEntries] = useState<Entry[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
-  const [ollama, setOllama] = useState<{ available: boolean; models: string[] } | null>(null);
-
-  useEffect(() => {
-    fetch("/api/recap")
-      .then((r) => r.json())
-      .then((d) => setOllama({ available: !!d.ollama, models: d.models ?? [] }))
-      .catch(() => setOllama({ available: false, models: [] }));
-  }, []);
 
   async function ask(text: string) {
     if (busy || !text.trim()) return;
     setBusy(true);
-    const askedAt = currentTime; // freeze — audio keeps moving while the model thinks
+    const askedAt = currentTime; // freeze — audio keeps moving while the recap builds
     try {
       const res = await fetch("/api/recap", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          partId,
-          timeSec: askedAt,
-          question: text.trim(),
-          model: ollama?.models[0],
-        }),
+        body: JSON.stringify({ partId, timeSec: askedAt }),
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Could not build a recap");
@@ -80,7 +66,7 @@ export function RecapPanel({
             size="sm"
             variant="ghost"
             className="h-7 px-2 text-xs"
-            disabled={busy || !ollama?.available}
+            disabled={busy}
             onClick={() => ask(PRESETS[0].question)}
           >
             {busy ? <Loader2 className="size-3.5 animate-spin" /> : <Sparkles className="size-3.5" />}
@@ -100,9 +86,7 @@ export function RecapPanel({
           </div>
         ) : (
           <p className="text-subtle-foreground mt-1.5 text-xs leading-relaxed">
-            {ollama?.available
-              ? "A summary of the last few minutes, never using narration from ahead of you."
-              : "Needs a local model running. Start Ollama to use this."}
+            A summary of the last few minutes, never using narration from ahead of you.
           </p>
         )}
       </div>
@@ -148,18 +132,7 @@ export function RecapPanel({
         </form>
 
         <div className="text-muted-foreground flex items-center gap-2 text-xs">
-          {ollama === null ? (
-            <span>Checking for a local model…</span>
-          ) : ollama.available ? (
-            <Badge variant="secondary" className="gap-1 text-xs">
-              <Cpu className="size-3" />
-              {ollama.models[0]}
-            </Badge>
-          ) : (
-            <span>
-              No local model — using sentence extraction. Install Ollama for real summaries.
-            </span>
-          )}
+          <span>Key sentences from the narration, not a generated summary.</span>
           <span className="ml-auto">Only up to {formatTime(currentTime)}</span>
         </div>
       </div>
@@ -203,11 +176,6 @@ export function RecapPanel({
                 <p className="text-muted-foreground mt-2 text-sm leading-relaxed whitespace-pre-wrap">
                   {e.answer}
                 </p>
-                {e.source === "extractive" && (
-                  <p className="text-subtle-foreground mt-2 text-xs">
-                    Key sentences from the narration — no model installed.
-                  </p>
-                )}
               </div>
             ))}
           </div>

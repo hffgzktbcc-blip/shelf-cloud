@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { Toaster } from "@/components/ui/sonner";
@@ -20,6 +20,20 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Shelf — Audiobook Player",
   description: "A personal audiobook player for YouTube audiobooks and your own ebooks.",
+  manifest: "/manifest.webmanifest",
+  icons: { apple: "/apple-touch-icon.png" },
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Shelf",
+  },
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
+  themeColor: "#0a0a0a",
 };
 
 export default async function RootLayout({ children }: LayoutProps<"/">) {

@@ -68,7 +68,7 @@ export function SiteNav() {
         </div>
       </header>
 
-      <nav className="border-border/60 bg-background/95 fixed inset-x-0 bottom-0 z-50 grid grid-cols-7 border-t backdrop-blur md:hidden">
+      <nav className="border-border/60 bg-background/95 fixed inset-x-0 bottom-0 z-50 grid grid-cols-7 border-t pb-[env(safe-area-inset-bottom)] backdrop-blur md:hidden">
         {links.map(({ href, label, icon: Icon }) => {
           const active = isActive(pathname, href);
           return (
@@ -88,7 +88,7 @@ export function SiteNav() {
       </nav>
 
       {/* Room for the tab bar, which is fixed. */}
-      <div className="h-14 md:hidden" aria-hidden />
+      <div className="h-[calc(3.5rem+env(safe-area-inset-bottom))] md:hidden" aria-hidden />
     </>
   );
 }

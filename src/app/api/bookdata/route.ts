@@ -1,14 +1,12 @@
-import path from "node:path";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/db";
 import { findBookMetadata, type BookCandidate } from "@/lib/bookdata";
 import { extractEpubCover } from "@/lib/epub-cover";
+import { getEbook } from "@/lib/storage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-const STORAGE_DIR = path.join(process.cwd(), "storage", "ebooks");
 
 /**
  * The EPUB already on disk is the best cover source there is: it's the exact edition,
@@ -20,7 +18,8 @@ async function fromLoadedEbook(bookId: string, title: string): Promise<BookCandi
 
   for (const e of ebooks) {
     if (!e.filePath) continue;
-    const cover = await extractEpubCover(path.join(STORAGE_DIR, e.filePath)).catch(() => null);
+    const data = await getEbook(e.filePath);
+    const cover = data ? await extractEpubCover(data).catch(() => null) : null;
     if (!cover) continue;
     found.push({
       source: "epub",

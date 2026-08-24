@@ -34,9 +34,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { formatDuration, formatTime } from "@/lib/format";
 import { parseAudiobookTitle } from "@/lib/title";
-import { CalibrePicker } from "@/components/calibre-picker";
 import { KindleImport } from "@/components/kindle-import";
-import { KoboImport } from "@/components/kobo-import";
 import { CoverPicker } from "@/components/cover-picker";
 import { Cover } from "@/components/cover";
 import { KoboPosition } from "@/components/kobo-position";
@@ -251,14 +249,7 @@ export function BookClient({ book, links }: Props) {
                 )}
                 {book.ebooks.length > 0 ? "Replace ebook" : "Ebook"}
               </Button>
-              <CalibrePicker
-                bookId={book.id}
-                bookTitle={book.title}
-                bookAuthor={book.author}
-                onImported={() => router.refresh()}
-              />
               <KindleImport bookId={book.id} onImported={() => router.refresh()} />
-              <KoboImport bookId={book.id} onImported={() => router.refresh()} />
               <CoverPicker
                 bookId={book.id}
                 bookTitle={book.title}
