@@ -68,8 +68,8 @@ export function WelcomeClient({ hasBooks }: { hasBooks: boolean }) {
       </div>
 
       <p className="text-muted-foreground mx-auto mt-6 max-w-md text-center text-xs leading-relaxed">
-        No account, no sign-in. Your library, bookmarks and position live in a file on this
-        machine — nothing is uploaded anywhere.
+        Just yours. Your library, bookmarks and position stay in your own database — nothing is
+        shared or sold.
       </p>
     </div>
   );
