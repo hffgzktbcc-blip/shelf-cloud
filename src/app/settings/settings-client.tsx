@@ -236,7 +236,7 @@ export function SettingsClient({ hasApiKey, hasGoogleKey, koboSyncConfigured, pr
           <dl className="space-y-2 text-sm">
             {[
               ["Space", "Play / pause"],
-              ["←  /  →", "Back 15s / forward 30s"],
+              ["←  /  →", `Back ${initialPrefs.skipBack}s / forward ${initialPrefs.skipForward}s`],
               ["B", "Bookmark this moment"],
             ].map(([k, desc]) => (
               <div key={k} className="flex items-center justify-between">

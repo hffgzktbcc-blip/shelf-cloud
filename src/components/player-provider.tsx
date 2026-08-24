@@ -11,6 +11,7 @@ import {
 } from "react";
 import Link from "next/link";
 import { Pause, Play, RotateCcw, RotateCw, X } from "lucide-react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { formatTime } from "@/lib/format";
 import { Cover } from "@/components/cover";
@@ -248,6 +249,7 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
   //
   // Deliberately depends only on `playing`: including currentTime restarted the timer
   // before it could elapse, and the values are read from refs at fire time instead.
+  const saveFailed = useRef(false);
   useEffect(() => {
     if (!state.playing) return;
     const id = window.setInterval(() => {
@@ -263,7 +265,17 @@ export function PlayerProvider({ children }: { children: React.ReactNode }) {
             ? { duration: Math.round(liveRef.current.duration) }
             : {}),
         }),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          saveFailed.current = false;
+        })
+        .catch(() => {
+          // Ticks every 5s while playing — warn once per outage, not once per tick.
+          if (saveFailed.current) return;
+          saveFailed.current = true;
+          toast.error("Couldn't save your position — check your connection.");
+        });
     }, 5000);
     return () => window.clearInterval(id);
   }, [state.playing]);

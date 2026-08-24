@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { BookOpen, GripVertical, Library, Play, Quote, Sparkles, Tablet, X } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Cover } from "@/components/cover";
 import { cn } from "@/lib/utils";
@@ -229,12 +230,14 @@ function Queue({ initial }: { initial: HomeData["queue"] }) {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ order: next.map((i) => i.bookId) }),
-    }).catch(() => {});
+    }).catch(() => toast.error("Couldn't save the new order — try again."));
   }
 
   async function remove(bookId: string) {
     setItems((list) => list.filter((i) => i.bookId !== bookId));
-    await fetch(`/api/queue?bookId=${bookId}`, { method: "DELETE" }).catch(() => {});
+    await fetch(`/api/queue?bookId=${bookId}`, { method: "DELETE" }).catch(() =>
+      toast.error("Couldn't remove that from the queue — try again."),
+    );
     router.refresh();
   }
 
