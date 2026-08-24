@@ -4,8 +4,12 @@ import { PlayerClient } from "./player-client";
 
 export const dynamic = "force-dynamic";
 
-export default async function PlayPage({ params }: PageProps<"/book/[id]/play/[partId]">) {
+export default async function PlayPage({
+  params,
+  searchParams,
+}: PageProps<"/book/[id]/play/[partId]">) {
   const { id, partId } = await params;
+  const { tab, recap } = await searchParams;
 
   const book = await prisma.book.findUnique({
     where: { id },
@@ -24,6 +28,8 @@ export default async function PlayPage({ params }: PageProps<"/book/[id]/play/[p
     <PlayerClient
       book={JSON.parse(JSON.stringify(book))}
       initialPartId={part.id}
+      initialTab={tab === "text" ? "text" : "chapters"}
+      autoRecap={recap === "1"}
     />
   );
 }

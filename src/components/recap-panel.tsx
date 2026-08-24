@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Loader2, Send, Sparkles, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -15,6 +15,7 @@ export function RecapPanel({
   currentTime,
   onSeek,
   compact = false,
+  autoAsk = false,
 }: {
   partId: string;
   currentTime: number;
@@ -25,10 +26,13 @@ export function RecapPanel({
    * to a single line until asked, and never fills the pane.
    */
   compact?: boolean;
+  /** Fires the first preset question once on mount, for a "Catch me up" deep link. */
+  autoAsk?: boolean;
 }) {
   const [entries, setEntries] = useState<Entry[]>([]);
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
+  const autoAsked = useRef(false);
 
   async function ask(text: string) {
     if (busy || !text.trim()) return;
@@ -53,6 +57,14 @@ export function RecapPanel({
       setBusy(false);
     }
   }
+
+  useEffect(() => {
+    if (!autoAsk || autoAsked.current) return;
+    autoAsked.current = true;
+    ask(PRESETS[0].question);
+    // Fires once on mount only — re-running on every `ask` identity change would re-ask.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoAsk]);
 
   if (compact) {
     const latest = entries[0];

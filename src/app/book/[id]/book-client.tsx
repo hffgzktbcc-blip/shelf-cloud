@@ -310,7 +310,7 @@ export function BookClient({ book, links }: Props) {
                       )}
                     </Link>
                     <Button asChild size="icon" variant="ghost" className="shrink-0">
-                      <Link href={`/book/${book.id}/play/${p.id}`}>
+                      <Link href={`/book/${book.id}/play/${p.id}`} aria-label="Play this part">
                         <Play className="size-4" />
                       </Link>
                     </Button>
@@ -423,6 +423,7 @@ export function BookClient({ book, links }: Props) {
                     variant="ghost"
                     className="size-8 shrink-0"
                     onClick={async () => {
+                      if (!confirm(`Remove "${e.fileName}"? This cannot be undone.`)) return;
                       await fetch(`/api/ebooks/${e.id}`, { method: "DELETE" });
                       toast.success("Ebook removed");
                       router.refresh();

@@ -47,7 +47,17 @@ import type { Book, Bookmark as BookmarkType, Chapter } from "@/lib/types";
 
 const RATES = [0.75, 1, 1.1, 1.25, 1.5, 1.75, 2];
 
-export function PlayerClient({ book, initialPartId }: { book: Book; initialPartId: string }) {
+export function PlayerClient({
+  book,
+  initialPartId,
+  initialTab = "chapters",
+  autoRecap = false,
+}: {
+  book: Book;
+  initialPartId: string;
+  initialTab?: "chapters" | "text";
+  autoRecap?: boolean;
+}) {
   const router = useRouter();
   const [partId, setPartId] = useState(initialPartId);
   const part = book.parts.find((p) => p.id === partId) ?? book.parts[0];
@@ -183,6 +193,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
     return () => setNowPlayingLabel(null);
   }, [activeChapter?.title, setNowPlayingLabel]);
 
+  const saveFailed = useRef(false);
   const saveProgress = useCallback(
     (position: number, completed = false) => {
       fetch(`/api/parts/${part.id}`, {
@@ -194,7 +205,17 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
           completed,
           ...(state.duration ? { duration: Math.round(state.duration) } : {}),
         }),
-      }).catch(() => {});
+      })
+        .then((res) => {
+          if (!res.ok) throw new Error();
+          saveFailed.current = false;
+        })
+        .catch(() => {
+          // Ticks every 5s while playing — warn once per outage, not once per tick.
+          if (saveFailed.current) return;
+          saveFailed.current = true;
+          toast.error("Couldn't save your position — check your connection.");
+        });
     },
     [part.id, state.duration, rate],
   );
@@ -415,6 +436,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
               size="icon"
               disabled={!prevPart}
               onClick={() => prevPart && goToPart(prevPart.id)}
+              aria-label="Previous part"
             >
               <ChevronLeft className="size-5" />
             </Button>
@@ -455,6 +477,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
               size="icon"
               disabled={!nextPart}
               onClick={() => nextPart && goToPart(nextPart.id)}
+              aria-label="Next part"
             >
               <ChevronRight className="size-5" />
             </Button>
@@ -516,7 +539,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
         {/* Fill the window rather than a fixed fraction of it: at 78vh the panel stopped
             short of the fold on every screen, leaving a dead band under the player. */}
         <div className="bg-card/50 h-[70vh] min-h-[420px] md:h-[calc(100vh-8.5rem)] md:min-h-[520px] overflow-hidden rounded-xl border">
-          <Tabs defaultValue="chapters" className="flex h-full flex-col gap-0">
+          <Tabs defaultValue={initialTab} className="flex h-full flex-col gap-0">
             <TabsList className="m-2 grid grid-cols-3">
               <TabsTrigger value="chapters" className="gap-1.5 text-xs">
                 <ListTree className="size-3.5" />
@@ -538,6 +561,7 @@ export function PlayerClient({ book, initialPartId }: { book: Book; initialPartI
                 currentTime={state.currentTime}
                 onSeek={seekTo}
                 compact
+                autoAsk={autoRecap}
               />
               <ChapterList
                 chapters={chapters}
