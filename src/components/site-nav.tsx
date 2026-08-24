@@ -53,6 +53,7 @@ export function SiteNav() {
                 <Link
                   key={href}
                   href={href}
+                  prefetch={false}
                   className={cn(
                     "flex items-center gap-2 rounded-md px-3 py-1.5 text-sm transition-colors",
                     active
@@ -76,6 +77,7 @@ export function SiteNav() {
             <Link
               key={href}
               href={href}
+              prefetch={false}
               className={cn(
                 "flex h-14 flex-col items-center justify-center gap-1 text-[11px] transition-colors",
                 active ? "text-foreground" : "text-muted-foreground",
